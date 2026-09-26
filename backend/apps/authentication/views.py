@@ -238,3 +238,22 @@ class ResetPasswordView(APIView):
             {'message': 'Password has been reset successfully. You can now log in.'},
             status=status.HTTP_200_OK,
         )
+
+
+class UserListView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        users = User.objects.filter(is_active=True).order_by('first_name', 'last_name')
+        data = [
+            {
+                'id': str(u.id),
+                'name': u.full_name or u.email,
+                'email': u.email,
+                'role': u.role,
+            }
+            for u in users
+        ]
+        return Response(data, status=status.HTTP_200_OK)
+

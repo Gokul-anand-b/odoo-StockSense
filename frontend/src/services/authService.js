@@ -89,6 +89,11 @@ const authService = {
     });
     return data;
   },
+
+  async getUsers() {
+    const { data } = await api.get(`${AUTH_PREFIX}/users/`);
+    return data;
+  },
 };
 
 export default authService;

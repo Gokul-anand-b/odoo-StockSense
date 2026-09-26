@@ -1,4 +1,5 @@
 // Operation Service for Outgoing Deliveries, Incoming Receipts, Internal Transfers & Adjustments
+import api from './api';
 import { productService } from './productService';
 
 const DELIVERIES_STORAGE_KEY = 'stocksense_deliveries_v1';
@@ -158,50 +159,121 @@ function appendLedgerEntry(entry) {
 export const operationService = {
   // --- INTERNAL TRANSFERS ---
   async getTransfers({ status = 'all', search = '' } = {}) {
-    const list = getStoredTransfers();
-    return list.filter((t) => {
-      const matchStatus = status === 'all' || t.status.toLowerCase() === status.toLowerCase();
-      const matchSearch =
-        !search ||
-        t.id.toLowerCase().includes(search.toLowerCase()) ||
-        t.sourceLocation.toLowerCase().includes(search.toLowerCase()) ||
-        t.destinationLocation.toLowerCase().includes(search.toLowerCase()) ||
-        t.items.some((i) => i.product.toLowerCase().includes(search.toLowerCase()) || i.sku.toLowerCase().includes(search.toLowerCase()));
-      return matchStatus && matchSearch;
-    });
+    try {
+      const response = await api.get('/operations/transfers/');
+      const apiTransfers = response.data.map((t) => ({
+        id: t.transfer_number || t.id,
+        db_id: t.id,
+        from: t.from_zone || t.from_zone_id || 'Zone A',
+        to: t.to_zone || t.to_zone_id || 'Zone B',
+        items: t.items_count || (t.items ? t.items.length : 1),
+        units: t.total_units || 10,
+        status: (t.status === 'COMPLETED' || t.status === 'complete' || t.status === 'done') ? 'complete' : 'pending',
+        date: t.scheduled_date || (t.created_at ? t.created_at.slice(0, 10) : ''),
+        reason: t.reason || '',
+        responsible: t.responsible_name || t.responsible_user_id || 'Unassigned',
+        items_detail: t.items || [],
+      }));
+      saveTransfers(apiTransfers);
+
+      return apiTransfers.filter((t) => {
+        const matchStatus = status === 'all' || t.status.toLowerCase() === status.toLowerCase();
+        const matchSearch =
+          !search ||
+          t.id.toLowerCase().includes(search.toLowerCase()) ||
+          (t.from && t.from.toLowerCase().includes(search.toLowerCase())) ||
+          (t.to && t.to.toLowerCase().includes(search.toLowerCase()));
+        return matchStatus && matchSearch;
+      });
+    } catch (err) {
+      console.warn('Backend transfer fetch failed, using stored transfers fallback:', err);
+      const list = getStoredTransfers();
+      return list.filter((t) => {
+        const matchStatus = status === 'all' || t.status.toLowerCase() === status.toLowerCase();
+        const matchSearch =
+          !search ||
+          t.id.toLowerCase().includes(search.toLowerCase()) ||
+          (t.from && t.from.toLowerCase().includes(search.toLowerCase())) ||
+          (t.to && t.to.toLowerCase().includes(search.toLowerCase()));
+        return matchStatus && matchSearch;
+      });
+    }
   },
 
   async getTransferById(id) {
-    const list = getStoredTransfers();
-    const found = list.find((t) => t.id === id);
-    if (!found) throw new Error(`Internal transfer ${id} not found`);
-    return found;
+    try {
+      const response = await api.get(`/operations/transfers/${id}/`);
+      const t = response.data;
+      return {
+        id: t.transfer_number || t.id,
+        db_id: t.id,
+        from: t.from_zone || t.from_zone_id || 'Zone A',
+        to: t.to_zone || t.to_zone_id || 'Zone B',
+        items: t.items_count || (t.items ? t.items.length : 1),
+        units: t.total_units || 10,
+        status: (t.status === 'COMPLETED' || t.status === 'complete' || t.status === 'done') ? 'complete' : 'pending',
+        date: t.scheduled_date || (t.created_at ? t.created_at.slice(0, 10) : ''),
+        reason: t.reason || '',
+        responsible: t.responsible_name || t.responsible_user_id || 'Unassigned',
+        items_detail: t.items || [],
+      };
+    } catch (err) {
+      const list = getStoredTransfers();
+      const found = list.find((t) => t.id === id || t.db_id === id);
+      if (!found) throw new Error(`Internal transfer ${id} not found`);
+      return found;
+    }
   },
 
   async createTransfer(data) {
-    const list = getStoredTransfers();
-    const newId = `TRN-2026-${String(list.length + 1).padStart(3, '0')}`;
-    const newTransfer = {
-      id: newId,
-      sourceLocation: data.sourceLocation || 'Main Warehouse - Rack A-12',
-      destinationLocation: data.destinationLocation || 'Production Assembly Floor',
-      status: 'draft',
-      date: new Date().toISOString(),
-      scheduledDate: data.scheduledDate || new Date(Date.now() + 86400000).toISOString(),
-      totalItems: data.items ? data.items.length : 0,
-      items: (data.items || []).map((it, idx) => ({
-        id: `item-trn-${Date.now()}-${idx}`,
-        product: it.product,
-        sku: it.sku || `SKU-${Math.floor(1000 + Math.random() * 9000)}`,
-        qtyToTransfer: parseInt(it.qtyToTransfer || 1, 10),
-        uom: it.uom || 'Units'
-      })),
-      notes: data.notes || '',
-    };
+    try {
+      const payload = {
+        from_zone: data.from_zone || data.from || data.sourceLocation || 'Zone A',
+        to_zone: data.to_zone || data.to || data.destinationLocation || 'Zone B',
+        scheduled_date: data.scheduledDate || data.scheduled_date || new Date().toISOString().slice(0, 10),
+        reason: data.reason || data.notes || '',
+        responsible: data.responsible,
+        units: data.units ? Number(data.units) : 10,
+        items: data.items,
+      };
 
-    const updated = [newTransfer, ...list];
-    saveTransfers(updated);
-    return newTransfer;
+      const response = await api.post('/operations/transfers/', payload);
+      const t = response.data;
+      const created = {
+        id: t.transfer_number || t.id,
+        db_id: t.id,
+        from: t.from_zone || payload.from_zone,
+        to: t.to_zone || payload.to_zone,
+        items: t.items_count || 1,
+        units: t.total_units || payload.units,
+        status: 'pending',
+        date: t.scheduled_date || new Date().toISOString().slice(0, 10),
+        reason: t.reason || payload.reason,
+        responsible: payload.responsible || 'Unassigned',
+        items_detail: t.items || [],
+      };
+
+      const list = getStoredTransfers();
+      saveTransfers([created, ...list]);
+      return created;
+    } catch (err) {
+      console.error('API createTransfer failed, using local storage fallback:', err);
+      const list = getStoredTransfers();
+      const newId = `TRF-${4822 + list.length}`;
+      const newTransfer = {
+        id: newId,
+        from: data.from_zone || data.from || 'Zone A',
+        to: data.to_zone || data.to || 'Zone B',
+        items: 1,
+        units: Number(data.units) || 10,
+        status: 'pending',
+        date: data.scheduledDate || new Date().toISOString().slice(0, 10),
+        reason: data.reason || data.notes || '',
+        responsible: data.responsible || 'Unassigned',
+      };
+      saveTransfers([newTransfer, ...list]);
+      return newTransfer;
+    }
   },
 
   async updateTransfer(id, data) {

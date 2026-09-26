@@ -1,10 +1,11 @@
 'use client';
 
+import { use } from 'react';
 import Link from 'next/link';
 import { PackageOpen, CheckCircle, ArrowLeft } from 'lucide-react';
 
 export default function ReceiptDetailPage({ params }) {
-  const { id } = params;
+  const { id } = use(params);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', animation: 'fadeIn 0.4s var(--ease-out)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>

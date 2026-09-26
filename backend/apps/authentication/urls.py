@@ -16,6 +16,7 @@ from .views import (
     OTPRequestView,
     OTPVerifyView,
     ResetPasswordView,
+    UserListView,
 )
 
 app_name = 'authentication'
@@ -35,4 +36,7 @@ urlpatterns = [
     path('otp/request/', OTPRequestView.as_view(), name='otp-request'),
     path('otp/verify/', OTPVerifyView.as_view(), name='otp-verify'),
     path('reset-password/', ResetPasswordView.as_view(), name='reset-password'),
+
+    # ── Users List ──
+    path('users/', UserListView.as_view(), name='user-list'),
 ]
