@@ -3,32 +3,26 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  LayoutDashboard,
   Boxes,
+  PlusCircle,
+  SlidersHorizontal,
+  Truck,
+  ArrowDownLeft,
   ArrowLeftRight,
+  Sliders,
+  History,
   Box,
-  TrendingUp,
+  Search,
+  Warehouse,
   Bell,
-  User,
-  LogOut,
-  Shield,
-  Layers,
+  ShieldCheck,
+  Radio,
 } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import styles from '../../styles/dashboardLayout.module.css';
 
-const NAV_ITEMS = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Operations', href: '/operations', icon: ArrowLeftRight },
-  { label: 'Products', href: '/products', icon: Boxes },
-  { label: '3D Warehouse', href: '/warehouse-3d', icon: Box },
-  { label: 'Forecasting', href: '/forecasting', icon: TrendingUp },
-  { label: 'Alerts', href: '/alerts', icon: Bell },
-  { label: 'Profile', href: '/profile', icon: User },
-];
-
 export default function DashboardLayout({ children }) {
-  const { user, isAuthenticated, isLoading, logout, isManager } = useAuth({
+  const { user, isAuthenticated, isLoading, logout } = useAuth({
     requireAuth: true,
   });
   const pathname = usePathname();
@@ -46,82 +40,200 @@ export default function DashboardLayout({ children }) {
     return null; // useAuth handles redirect to /login
   }
 
-  const initials =
-    user?.first_name && user?.last_name
-      ? `${user.first_name[0]}${user.last_name[0]}`.toUpperCase()
-      : 'SS';
-
-  const roleLabel =
-    user?.role === 'inventory_manager'
-      ? 'Inventory Manager'
-      : user?.role === 'warehouse_staff'
-      ? 'Warehouse Staff'
-      : user?.role || 'Staff';
+  const userInitial = user?.first_name ? user.first_name[0].toUpperCase() : 'N';
 
   return (
     <div className={styles.dashboardShell}>
-      {/* Top Navbar */}
-      <header className={styles.topbar}>
-        <div className={styles.topbarInner}>
-          <div className={styles.leftSection}>
-            <Link href="/dashboard" className={styles.brandLink}>
-              <div className={styles.logoIcon}>S</div>
-              <span className={styles.brandTitle}>StockSense</span>
-            </Link>
-
-            <nav className={styles.navLinks} aria-label="Main Navigation">
-              {NAV_ITEMS.map((item) => {
-                const Icon = item.icon;
-                const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`${styles.navItem} ${isActive ? styles.navItemActive : ''}`}
-                  >
-                    <Icon size={16} />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </nav>
+      {/* ── Left Sidebar ── */}
+      <aside className={styles.sidebar}>
+        {/* Brand Header */}
+        <Link href="/dashboard" className={styles.brandHeader}>
+          <div className={styles.brandLogo}>ss</div>
+          <div className={styles.brandTitles}>
+            <span className={styles.brandName}>StockSense</span>
+            <span className={styles.brandTagline}>B&W INVENTORY CORE</span>
           </div>
+        </Link>
 
-          <div className={styles.rightSection}>
-            {/* Role Badge */}
-            <span
-              className={`${styles.roleBadge} ${
-                isManager ? styles.roleManager : styles.roleStaff
-              }`}
-            >
-              <Shield size={12} />
-              {roleLabel}
-            </span>
-
-            {/* User Profile Pill */}
-            <Link href="/profile" className={styles.userMenu}>
-              <div className={styles.avatar}>{initials}</div>
-              <span className={styles.userName}>
-                {user?.first_name ? `${user.first_name} ${user.last_name || ''}` : user?.email}
-              </span>
-            </Link>
-
-            {/* Logout Action */}
-            <button
-              type="button"
-              onClick={logout}
-              className={styles.logoutBtn}
-              title="Sign Out"
-              aria-label="Sign Out"
-            >
-              <LogOut size={16} />
-            </button>
-          </div>
+        {/* Group: CATALOG & PRODUCTS */}
+        <div className={styles.navGroup}>
+          <div className={styles.groupLabel}>Catalog & Products</div>
+          <Link
+            href="/products"
+            className={`${styles.navLink} ${
+              pathname === '/products' || pathname === '/dashboard' ? styles.navLinkActive : ''
+            }`}
+          >
+            <div className={styles.navLinkLeft}>
+              <Boxes size={16} />
+              <span>Products Directory</span>
+            </div>
+          </Link>
+          <Link
+            href="/products/create"
+            className={`${styles.navLink} ${
+              pathname === '/products/create' ? styles.navLinkActive : ''
+            }`}
+          >
+            <div className={styles.navLinkLeft}>
+              <PlusCircle size={16} />
+              <span>Create Product</span>
+            </div>
+          </Link>
+          <Link
+            href="/products/categories"
+            className={`${styles.navLink} ${
+              pathname === '/products/categories' ? styles.navLinkActive : ''
+            }`}
+          >
+            <div className={styles.navLinkLeft}>
+              <SlidersHorizontal size={16} />
+              <span>Categories</span>
+            </div>
+          </Link>
         </div>
-      </header>
 
-      {/* Main Content Viewport */}
-      <main className={styles.mainContent}>{children}</main>
+        {/* Group: OPERATIONS & LOGISTICS */}
+        <div className={styles.navGroup}>
+          <div className={styles.groupLabel}>Operations & Logistics</div>
+          <Link
+            href="/operations/deliveries"
+            className={`${styles.navLink} ${
+              pathname?.startsWith('/operations/deliveries') ? styles.navLinkActive : ''
+            }`}
+          >
+            <div className={styles.navLinkLeft}>
+              <Truck size={16} />
+              <span>Delivery Orders</span>
+            </div>
+            <span className={`${styles.pillBadge} ${styles.pillBadgeDark}`}>Active</span>
+          </Link>
+          <Link
+            href="/operations/receipts"
+            className={`${styles.navLink} ${
+              pathname?.startsWith('/operations/receipts') ? styles.navLinkActive : ''
+            }`}
+          >
+            <div className={styles.navLinkLeft}>
+              <ArrowDownLeft size={16} />
+              <span>Incoming Receipts</span>
+            </div>
+          </Link>
+          <Link
+            href="/operations/transfers"
+            className={`${styles.navLink} ${
+              pathname?.startsWith('/operations/transfers') ? styles.navLinkActive : ''
+            }`}
+          >
+            <div className={styles.navLinkLeft}>
+              <ArrowLeftRight size={16} />
+              <span>Internal Transfers</span>
+            </div>
+          </Link>
+          <Link
+            href="/operations/adjustments"
+            className={`${styles.navLink} ${
+              pathname?.startsWith('/operations/adjustments') ? styles.navLinkActive : ''
+            }`}
+          >
+            <div className={styles.navLinkLeft}>
+              <Sliders size={16} />
+              <span>Stock Adjustments</span>
+            </div>
+          </Link>
+        </div>
+
+        {/* Group: LEDGER & VISUALIZATION */}
+        <div className={styles.navGroup}>
+          <div className={styles.groupLabel}>Ledger & Visualization</div>
+          <Link
+            href="/move-history"
+            className={`${styles.navLink} ${
+              pathname === '/move-history' ? styles.navLinkActive : ''
+            }`}
+          >
+            <div className={styles.navLinkLeft}>
+              <History size={16} />
+              <span>Stock Move Ledger</span>
+            </div>
+          </Link>
+          <Link
+            href="/warehouse-3d"
+            className={`${styles.navLink} ${
+              pathname === '/warehouse-3d' ? styles.navLinkActive : ''
+            }`}
+          >
+            <div className={styles.navLinkLeft}>
+              <Box size={16} />
+              <span>3D Warehouse</span>
+            </div>
+            <span className={`${styles.pillBadge} ${styles.pillBadgeLight}`}>3D</span>
+          </Link>
+        </div>
+
+        {/* Sidebar Footer */}
+        <div className={styles.sidebarFooter}>
+          <Link href="/profile" className={styles.userAvatarBtn} title="User Profile">
+            {userInitial}
+          </Link>
+          <button
+            type="button"
+            onClick={logout}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#71717a',
+              cursor: 'pointer',
+              fontSize: '12px',
+            }}
+          >
+            Sign Out
+          </button>
+        </div>
+      </aside>
+
+      {/* ── Main Viewport ── */}
+      <div className={styles.mainViewport}>
+        {/* Top Navbar */}
+        <header className={styles.topbar}>
+          <div className={styles.topbarLeft}>
+            <span className={styles.coreTitle}>StockSense Core</span>
+            <div className={styles.pulseBadge}>
+              <div className={styles.pulseDot} />
+              <span>LIVE PULSE</span>
+            </div>
+          </div>
+
+          <div className={styles.topbarCenter}>
+            <Search size={14} className={styles.searchIcon} />
+            <input
+              type="text"
+              placeholder="Quick SKU / Document search..."
+              className={styles.topSearchInput}
+            />
+          </div>
+
+          <div className={styles.topbarRight}>
+            <button type="button" className={styles.topbarBtn}>
+              <Warehouse size={14} />
+              <span>Central Hub (WH-01)</span>
+            </button>
+
+            <Link href="/alerts" className={styles.iconOnlyBtn} title="Alerts & Notifications">
+              <Bell size={15} />
+              <span className={styles.notifDot} />
+            </Link>
+
+            <div className={styles.statusEnginePill}>
+              <ShieldCheck size={14} />
+              <span>B&W ENGINE ONLINE</span>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Page Content */}
+        <main className={styles.contentArea}>{children}</main>
+      </div>
     </div>
   );
 }
