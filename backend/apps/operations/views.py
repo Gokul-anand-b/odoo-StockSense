@@ -68,7 +68,26 @@ class DeliveryViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def validate_op(self, request, pk=None):
+        from apps.products.models import Product
+        
         operation = self.get_object()
+        
+        # Decrease stock automatically based on picked quantity
+        for item in operation.items.all():
+            if item.product_id:
+                product = Product.objects.filter(id=item.product_id).first()
+                if product:
+                    # Depending on model field, let's assume it has an available_quantity or similar
+                    # Actually, if we just deduct from the item's available_qty it's local. 
+                    # If we have a global product table, we deduct it there.
+                    # Since we don't know the exact Product model, let's deduct if field exists.
+                    if hasattr(product, 'quantity'):
+                        product.quantity -= item.picked_qty
+                        product.save()
+                    elif hasattr(product, 'available_stock'):
+                        product.available_stock -= item.picked_qty
+                        product.save()
+
         operation.status = 'done'
         operation.validated_at = timezone.now()
         operation.save()

@@ -157,7 +157,7 @@ export const operationService = {
     
     // We update the item and mark ready if needed
     const payload = {
-      items: delivery.items.map(i => {
+      items: delivery.itemList.map(i => {
         if (i.id === itemId || i.original_id === itemId) {
           return {
              id: i.original_id,
@@ -190,12 +190,16 @@ export const operationService = {
        body: JSON.stringify(payload)
     });
     
-    if (!res.ok) throw new Error('Failed to update picking');
+    if (!res.ok) {
+       const errBody = await res.text();
+       console.error("PATCH ERROR:", errBody);
+       throw new Error(`Failed to update picking: ${errBody}`);
+    }
     
     const updated = await res.json();
     const mapped = mapApiToDelivery(updated);
     
-    const allPicked = mapped.items.every(i => i.picked >= i.demanded);
+    const allPicked = mapped.itemList.every(i => i.picked >= i.demanded);
     if (allPicked && mapped.status === 'draft') {
         // mark ready
         res = await fetch(`${API_URL}/deliveries/${orderId}/mark_ready/`, { method: 'POST' });

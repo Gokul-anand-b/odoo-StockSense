@@ -8,6 +8,8 @@ import uuid
 
 
 class OperationItemSerializer(serializers.ModelSerializer):
+    id = serializers.CharField(max_length=100, validators=[], required=False)
+    
     class Meta:
         model = OperationItem
         fields = [
