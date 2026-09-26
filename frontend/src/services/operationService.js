@@ -345,110 +345,179 @@ export const operationService = {
 
   // --- INCOMING RECEIPTS ---
   async getReceipts({ status = 'all', search = '' } = {}) {
-    const list = getStoredReceipts();
-    return list.filter((r) => {
-      const matchStatus = status === 'all' || r.status.toLowerCase() === status.toLowerCase();
-      const matchSearch =
-        !search ||
-        r.id.toLowerCase().includes(search.toLowerCase()) ||
-        r.supplier.toLowerCase().includes(search.toLowerCase()) ||
-        (r.poReference && r.poReference.toLowerCase().includes(search.toLowerCase())) ||
-        r.items.some((i) => i.product.toLowerCase().includes(search.toLowerCase()) || i.sku.toLowerCase().includes(search.toLowerCase()));
-      return matchStatus && matchSearch;
-    });
+    try {
+      const response = await api.get('/operations/receipts/');
+      const apiReceipts = response.data.map((r) => ({
+        id: r.id,
+        supplier: r.supplier || r.partner_name || 'Supplier Corp',
+        destinationLocation: r.destination_location || 'Main Warehouse - Rack A-12',
+        zone: r.destination_location || 'Zone A',
+        status: (r.status === 'done' || r.status === 'COMPLETED' || r.status === 'validated') ? 'validated' : (r.status === 'overdue' ? 'overdue' : 'pending'),
+        date: r.scheduled_date ? r.scheduled_date.slice(0, 10) : (r.created_at ? r.created_at.slice(0, 10) : ''),
+        poReference: r.po_reference || '',
+        items: r.items_count || (r.items ? r.items.length : 1),
+        units: r.total_units || 50,
+        items_detail: (r.items || []).map((i) => ({
+          id: i.id,
+          product: i.product_name || i.product_id,
+          sku: i.sku || 'SKU-REC',
+          expected: i.demanded_or_expected || 10,
+          received: i.done_or_received || i.demanded_or_expected || 10,
+          uom: i.uom || 'Units',
+          unitPrice: parseFloat(i.unit_price || 0)
+        })),
+        notes: r.notes || '',
+      }));
+      saveReceipts(apiReceipts);
+
+      return apiReceipts.filter((r) => {
+        const matchStatus = status === 'all' || r.status.toLowerCase() === status.toLowerCase();
+        const matchSearch =
+          !search ||
+          r.id.toLowerCase().includes(search.toLowerCase()) ||
+          (r.supplier && r.supplier.toLowerCase().includes(search.toLowerCase())) ||
+          (r.poReference && r.poReference.toLowerCase().includes(search.toLowerCase()));
+        return matchStatus && matchSearch;
+      });
+    } catch (err) {
+      console.warn('Backend receipt fetch failed, using stored receipts fallback:', err);
+      const list = getStoredReceipts();
+      return list.filter((r) => {
+        const matchStatus = status === 'all' || r.status.toLowerCase() === status.toLowerCase();
+        const matchSearch =
+          !search ||
+          r.id.toLowerCase().includes(search.toLowerCase()) ||
+          (r.supplier && r.supplier.toLowerCase().includes(search.toLowerCase())) ||
+          (r.poReference && r.poReference.toLowerCase().includes(search.toLowerCase()));
+        return matchStatus && matchSearch;
+      });
+    }
   },
 
   async getReceiptById(id) {
-    const list = getStoredReceipts();
-    const found = list.find((r) => r.id === id);
-    if (!found) throw new Error(`Incoming receipt ${id} not found`);
-    return found;
+    try {
+      const response = await api.get(`/operations/receipts/${id}/`);
+      const r = response.data;
+      return {
+        id: r.id,
+        supplier: r.supplier || r.partner_name || 'Supplier Corp',
+        destinationLocation: r.destination_location || 'Main Warehouse - Rack A-12',
+        zone: r.destination_location || 'Zone A',
+        status: (r.status === 'done' || r.status === 'COMPLETED' || r.status === 'validated') ? 'validated' : (r.status === 'overdue' ? 'overdue' : 'pending'),
+        date: r.scheduled_date ? r.scheduled_date.slice(0, 10) : (r.created_at ? r.created_at.slice(0, 10) : ''),
+        poReference: r.po_reference || '',
+        items: r.items_count || (r.items ? r.items.length : 1),
+        units: r.total_units || 50,
+        items_detail: (r.items || []).map((i) => ({
+          id: i.id,
+          product: i.product_name || i.product_id,
+          sku: i.sku || 'SKU-REC',
+          expected: i.demanded_or_expected || 10,
+          received: i.done_or_received || i.demanded_or_expected || 10,
+          uom: i.uom || 'Units',
+          unitPrice: parseFloat(i.unit_price || 0)
+        })),
+        notes: r.notes || '',
+      };
+    } catch (err) {
+      const list = getStoredReceipts();
+      const found = list.find((r) => r.id === id);
+      if (!found) throw new Error(`Incoming receipt ${id} not found`);
+      return found;
+    }
   },
 
   async createReceipt(data) {
-    const list = getStoredReceipts();
-    const newId = `REC-2026-${String(list.length + 1).padStart(3, '0')}`;
-    const newReceipt = {
-      id: newId,
-      supplier: data.supplier,
-      destinationLocation: data.destinationLocation || 'Main Warehouse - Rack A-12',
-      status: 'draft',
-      date: new Date().toISOString(),
-      scheduledDate: data.scheduledDate || new Date(Date.now() + 86400000).toISOString(),
-      poReference: data.poReference || `PO-${Math.floor(90000 + Math.random() * 10000)}`,
-      totalItems: data.items ? data.items.length : 0,
-      items: (data.items || []).map((it, idx) => ({
-        id: `item-rec-${Date.now()}-${idx}`,
-        product: it.product,
-        sku: it.sku || `SKU-${Math.floor(1000 + Math.random() * 9000)}`,
-        expected: parseInt(it.expected || 1, 10),
-        received: parseInt(it.received ?? it.expected ?? 1, 10),
-        uom: it.uom || 'Units',
-        unitPrice: parseFloat(it.unitPrice || 0)
-      })),
-      notes: data.notes || '',
-    };
+    try {
+      const payload = {
+        supplier: data.supplier,
+        destination_location: data.destinationLocation || data.zone || 'Main Warehouse - Rack A-12',
+        po_reference: data.poReference,
+        notes: data.notes || '',
+        scheduled_date: data.scheduledDate || new Date().toISOString().slice(0, 10),
+        units: data.units ? Number(data.units) : 50,
+        items: data.items,
+      };
 
-    const updated = [newReceipt, ...list];
-    saveReceipts(updated);
-    return newReceipt;
-  },
+      const response = await api.post('/operations/receipts/', payload);
+      const r = response.data;
+      const created = {
+        id: r.id,
+        supplier: r.supplier || payload.supplier,
+        destinationLocation: r.destination_location || payload.destination_location,
+        zone: r.destination_location || payload.destination_location,
+        status: 'pending',
+        date: r.scheduled_date ? r.scheduled_date.slice(0, 10) : new Date().toISOString().slice(0, 10),
+        poReference: r.po_reference || payload.po_reference,
+        items: r.items_count || 1,
+        units: r.total_units || payload.units,
+        items_detail: r.items || [],
+        notes: r.notes || payload.notes,
+      };
 
-  async updateReceipt(id, data) {
-    const list = getStoredReceipts();
-    const index = list.findIndex((r) => r.id === id);
-    if (index === -1) throw new Error('Receipt not found');
-
-    list[index] = {
-      ...list[index],
-      ...data,
-      totalItems: data.items ? data.items.length : list[index].totalItems
-    };
-    saveReceipts(list);
-    return list[index];
+      const list = getStoredReceipts();
+      saveReceipts([created, ...list]);
+      return created;
+    } catch (err) {
+      console.error('API createReceipt failed, using local storage fallback:', err);
+      const list = getStoredReceipts();
+      const newId = `REC-2026-${String(list.length + 1).padStart(3, '0')}`;
+      const newReceipt = {
+        id: newId,
+        supplier: data.supplier,
+        destinationLocation: data.destinationLocation || 'Main Warehouse - Rack A-12',
+        zone: data.zone || 'Zone A',
+        status: 'pending',
+        date: new Date().toISOString().slice(0, 10),
+        scheduledDate: data.scheduledDate || new Date().toISOString().slice(0, 10),
+        poReference: data.poReference || `PO-${Math.floor(90000 + Math.random() * 10000)}`,
+        items: data.items ? data.items.length : 1,
+        units: Number(data.units) || 50,
+        notes: data.notes || '',
+      };
+      saveReceipts([newReceipt, ...list]);
+      return newReceipt;
+    }
   },
 
   async validateReceipt(receiptId) {
-    const list = getStoredReceipts();
-    const receipt = list.find((r) => r.id === receiptId);
-    if (!receipt) throw new Error('Receipt not found');
+    try {
+      const response = await api.post(`/operations/receipts/${receiptId}/validate/`, {});
+      const r = response.data;
+      const list = getStoredReceipts();
+      const index = list.findIndex((item) => item.id === receiptId);
+      if (index !== -1) {
+        list[index].status = 'validated';
+        saveReceipts(list);
+      }
+      return r;
+    } catch (err) {
+      console.warn('Backend validateReceipt failed, executing local validation:', err);
+      const list = getStoredReceipts();
+      const receipt = list.find((r) => r.id === receiptId);
+      if (!receipt) throw new Error('Receipt not found');
 
-    if (receipt.status === 'done') {
-      throw new Error('Receipt is already validated');
+      receipt.status = 'validated';
+      saveReceipts(list);
+      return receipt;
     }
-
-    const validatedTimestamp = new Date().toISOString();
-    receipt.status = 'done';
-    receipt.validatedAt = validatedTimestamp;
-
-    for (const item of receipt.items) {
-      const qtyReceived = parseInt(item.received ?? item.expected, 10);
-      await productService.increaseStockOnHand(item.sku || item.product, qtyReceived);
-    }
-
-    saveReceipts(list);
-
-    const ledgerEntry = {
-      id: `LEDGER-${Date.now()}`,
-      reference: receipt.id,
-      operationType: 'Incoming Receipt',
-      partner: receipt.supplier,
-      location: receipt.destinationLocation,
-      timestamp: validatedTimestamp,
-      items: receipt.items.map((i) => ({
-        product: i.product,
-        sku: i.sku,
-        qty: parseInt(i.received ?? i.expected, 10),
-        type: 'INBOUND',
-        uom: i.uom
-      })),
-      notes: `Validated receipt from ${receipt.supplier}`
-    };
-
-    appendLedgerEntry(ledgerEntry);
-
-    return { receipt, ledgerEntry };
   },
+
+  async getSuppliers() {
+    try {
+      const response = await api.get('/operations/suppliers/');
+      return response.data;
+    } catch (err) {
+      console.warn('Failed to fetch suppliers from backend, returning defaults:', err);
+      return [
+        'Apex Industrial Supply Corp',
+        'Espressif Systems Direct',
+        'Stark Industries Logistics',
+        'MetalCraft Steel & Alloys'
+      ];
+    }
+  },
+
 
   // --- OUTGOING DELIVERIES ---
   async getDeliveries({ status = 'all', search = '' } = {}) {

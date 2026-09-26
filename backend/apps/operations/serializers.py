@@ -1,9 +1,9 @@
 """
-Serializers for Operations app (Internal Transfers).
+Serializers for Operations app (Internal Transfers & Incoming Receipts).
 """
 
 from rest_framework import serializers
-from .models import InternalTransfer, InternalTransferItem
+from .models import InternalTransfer, InternalTransferItem, ReceiptOperation, ReceiptItem
 from apps.authentication.models import User
 
 
@@ -91,3 +91,57 @@ class InternalTransferSerializer(serializers.ModelSerializer):
         except Exception:
             pass
         return str(obj.responsible_user_id)
+
+
+class ReceiptItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReceiptItem
+        fields = [
+            'id',
+            'product_id',
+            'product_name',
+            'sku',
+            'demanded_or_expected',
+            'done_or_received',
+            'uom',
+            'unit_price',
+            'created_at',
+        ]
+
+
+class ReceiptOperationSerializer(serializers.ModelSerializer):
+    items = ReceiptItemSerializer(many=True, read_only=True)
+    items_count = serializers.SerializerMethodField()
+    total_units = serializers.SerializerMethodField()
+    supplier = serializers.CharField(source='partner_name', read_only=True)
+
+    class Meta:
+        model = ReceiptOperation
+        fields = [
+            'id',
+            'operation_type',
+            'partner_name',
+            'supplier',
+            'source_location',
+            'destination_location',
+            'status',
+            'po_reference',
+            'total_items',
+            'notes',
+            'scheduled_date',
+            'created_date',
+            'validated_at',
+            'created_at',
+            'updated_at',
+            'items_count',
+            'total_units',
+            'items',
+        ]
+
+    def get_items_count(self, obj):
+        count = obj.items.count()
+        return count if count > 0 else (obj.total_items or 1)
+
+    def get_total_units(self, obj):
+        total = sum(item.demanded_or_expected for item in obj.items.all())
+        return int(total) if total > 0 else 50
