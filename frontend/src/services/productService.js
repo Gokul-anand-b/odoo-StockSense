@@ -1,14 +1,16 @@
 /**
- * StockSense — Product Service
+ * StockSense — Product & Category Service
  * Connects directly to Django Backend REST API & Supabase PostgreSQL database
  */
 
-const API_BASE = 'http://localhost:8000/api/products/';
+const PRODUCTS_API = 'http://localhost:8000/api/products/';
+const CATEGORIES_API = 'http://localhost:8000/api/products/categories/';
 
 export const productService = {
+  // ── Products ──
   getProducts: async () => {
     try {
-      const response = await fetch(API_BASE);
+      const response = await fetch(PRODUCTS_API);
       if (response.ok) {
         const data = await response.json();
         const results = Array.isArray(data) ? data : (data.results || []);
@@ -28,14 +30,14 @@ export const productService = {
         }));
       }
     } catch (err) {
-      console.warn('API fetch failed, trying fallback:', err);
+      console.warn('Products API fetch failed:', err);
     }
     return [];
   },
 
   getProductById: async (id) => {
     try {
-      const response = await fetch(`${API_BASE}${id}/`);
+      const response = await fetch(`${PRODUCTS_API}${id}/`);
       if (response.ok) {
         return await response.json();
       }
@@ -59,7 +61,7 @@ export const productService = {
         warehouse: productData.warehouse || 'Central Hub (WH-01)',
       };
 
-      const response = await fetch(API_BASE, {
+      const response = await fetch(PRODUCTS_API, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -95,12 +97,84 @@ export const productService = {
 
   deleteProduct: async (id) => {
     try {
-      const response = await fetch(`${API_BASE}${id}/`, {
+      const response = await fetch(`${PRODUCTS_API}${id}/`, {
         method: 'DELETE',
       });
       return response.ok;
     } catch (err) {
       console.error('Error deleting product from Supabase:', err);
+      return false;
+    }
+  },
+
+  // ── Categories ──
+  getCategories: async () => {
+    try {
+      const response = await fetch(CATEGORIES_API);
+      if (response.ok) {
+        const data = await response.json();
+        const results = Array.isArray(data) ? data : (data.results || []);
+        return results.map((c) => ({
+          ...c,
+          id: c.id,
+          name: c.name,
+          code: c.code || '',
+          description: c.description || '',
+          skus: c.skus_count || 0,
+          value: `$${(c.total_value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          raw_value: c.total_value || 0,
+        }));
+      }
+    } catch (err) {
+      console.warn('Categories API fetch failed:', err);
+    }
+    return [];
+  },
+
+  createCategory: async (categoryData) => {
+    try {
+      const response = await fetch(CATEGORIES_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(categoryData),
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.name?.[0] || 'Failed to create category.');
+      }
+      return await response.json();
+    } catch (err) {
+      console.error('Error creating category:', err);
+      throw err;
+    }
+  },
+
+  updateCategory: async (id, categoryData) => {
+    try {
+      const response = await fetch(`${CATEGORIES_API}${id}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(categoryData),
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.name?.[0] || 'Failed to update category.');
+      }
+      return await response.json();
+    } catch (err) {
+      console.error('Error updating category:', err);
+      throw err;
+    }
+  },
+
+  deleteCategory: async (id) => {
+    try {
+      const response = await fetch(`${CATEGORIES_API}${id}/`, {
+        method: 'DELETE',
+      });
+      return response.ok;
+    } catch (err) {
+      console.error('Error deleting category:', err);
       return false;
     }
   },

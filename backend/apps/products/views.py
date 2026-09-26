@@ -1,11 +1,20 @@
 """
-Product views and ViewSets with Upsert support.
+Product and Category views and ViewSets with Upsert support.
 """
 
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
-from .models import Product
-from .serializers import ProductSerializer
+from .models import Product, Category
+from .serializers import ProductSerializer, CategorySerializer
+
+
+class CategoryViewSet(viewsets.ModelViewSet):
+    """
+    CRUD API for Categories.
+    """
+    queryset = Category.objects.all().order_by('name')
+    serializer_class = CategorySerializer
+    permission_classes = [permissions.AllowAny]
 
 
 class ProductViewSet(viewsets.ModelViewSet):

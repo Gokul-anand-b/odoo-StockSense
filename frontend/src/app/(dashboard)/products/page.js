@@ -23,6 +23,7 @@ import { productService } from '../../../services/productService';
 
 export default function ProductsPage() {
   const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [isLoaded, setIsLoaded] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -30,25 +31,29 @@ export default function ProductsPage() {
   const [viewMode, setViewMode] = useState('list');
   const [selectedRows, setSelectedRows] = useState([]);
 
-  const loadProducts = async () => {
+  const loadData = async () => {
     try {
-      const list = await productService.getProducts();
-      setProducts(list);
+      const [prodsList, catsList] = await Promise.all([
+        productService.getProducts(),
+        productService.getCategories(),
+      ]);
+      setProducts(prodsList);
+      setCategories(catsList);
     } catch (err) {
-      console.error('Failed to load products:', err);
+      console.error('Failed to load products/categories:', err);
     } finally {
       setIsLoaded(true);
     }
   };
 
   useEffect(() => {
-    loadProducts();
+    loadData();
   }, []);
 
   const handleDelete = async (id, name) => {
     if (confirm(`Are you sure you want to delete "${name || id}"?`)) {
       await productService.deleteProduct(id);
-      await loadProducts();
+      await loadData();
       setSelectedRows((prev) => prev.filter((rId) => rId !== id));
     }
   };
@@ -84,9 +89,11 @@ export default function ProductsPage() {
     return matchesSearch && matchesCategory && matchesStatus;
   });
 
-  // Extract unique categories from live Supabase records
+  // Extract unique categories from live Supabase records & Categories table
+  const categoryNamesFromDb = categories.map((c) => c.name);
+  const categoryNamesFromProducts = products.map((p) => p.category);
   const availableCategories = Array.from(
-    new Set(products.map((p) => p.category).filter(Boolean))
+    new Set([...categoryNamesFromDb, ...categoryNamesFromProducts].filter(Boolean))
   );
 
   const toggleSelectAll = () => {
@@ -497,7 +504,7 @@ export default function ProductsPage() {
             />
           </div>
 
-          {/* Category Dropdown */}
+          {/* Category Dropdown (Dynamic from Supabase) */}
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
@@ -594,7 +601,7 @@ export default function ProductsPage() {
                 setSearch('');
                 setSelectedCategory('All');
                 setSelectedStatus('All');
-                loadProducts();
+                loadData();
               }}
               title="Refresh Products from Supabase"
               style={{
