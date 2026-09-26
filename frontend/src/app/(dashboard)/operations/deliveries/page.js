@@ -1,232 +1,97 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
-import { 
-  Truck, 
-  Plus, 
-  Search, 
-  Filter, 
-  ArrowUpRight, 
-  CheckCircle2, 
-  Clock, 
-  PackageCheck, 
-  AlertCircle,
-  Calendar,
-  Layers,
-  Sparkles,
-  ExternalLink
-} from 'lucide-react';
-import { operationService } from '@/services/operationService';
-import StatusBadge from '@/components/operations/StatusBadge';
-import styles from '@/styles/operations.module.css';
+import { Truck, Plus, Search, Eye, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+
+const MOCK_DELIVERIES = [
+  { id: 'DEL-2841', customer: 'Nexus Retail Ltd.', items: 5, units: 120, status: 'pending', date: '2026-09-26', priority: 'high' },
+  { id: 'DEL-2840', customer: 'Alpha Trading Co.', items: 3, units: 60, status: 'pending', date: '2026-09-26', priority: 'normal' },
+  { id: 'DEL-2839', customer: 'Metro Distribution', items: 8, units: 300, status: 'dispatched', date: '2026-09-25', priority: 'high' },
+  { id: 'DEL-2838', customer: 'CityMart Corp.', items: 2, units: 40, status: 'dispatched', date: '2026-09-25', priority: 'normal' },
+  { id: 'DEL-2837', customer: 'Regional Hub Inc.', items: 10, units: 500, status: 'overdue', date: '2026-09-22', priority: 'urgent' },
+  { id: 'DEL-2836', customer: 'Nexus Retail Ltd.', items: 4, units: 96, status: 'pending', date: '2026-09-26', priority: 'normal' },
+];
+
+const STATUS_CONFIG = {
+  pending: { label: 'Ready to Pick', color: 'var(--color-warning)', bg: 'rgba(245,158,11,0.1)', icon: Clock },
+  dispatched: { label: 'Dispatched', color: 'var(--color-success)', bg: 'rgba(16,185,129,0.1)', icon: CheckCircle },
+  overdue: { label: 'Overdue', color: 'var(--color-error)', bg: 'rgba(239,68,68,0.1)', icon: AlertCircle },
+};
+
+const PRIORITY_CONFIG = {
+  urgent: { label: 'URGENT', color: 'var(--color-error)' },
+  high: { label: 'HIGH', color: 'var(--color-warning)' },
+  normal: { label: 'NORMAL', color: 'var(--color-text-tertiary)' },
+};
 
 export default function DeliveriesPage() {
-  const [deliveries, setDeliveries] = useState([]);
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadDeliveries();
-  }, [statusFilter, searchQuery]);
-
-  const loadDeliveries = async () => {
-    setLoading(true);
-    try {
-      const data = await operationService.getDeliveries({
-        status: statusFilter,
-        search: searchQuery,
-      });
-      setDeliveries(data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // KPI Counter metrics
-  const totalCount = deliveries.length;
-  const readyCount = deliveries.filter((d) => d.status === 'ready').length;
-  const waitingCount = deliveries.filter((d) => d.status === 'waiting').length;
-  const doneCount = deliveries.filter((d) => d.status === 'done').length;
+  const [search, setSearch] = useState('');
+  const filtered = MOCK_DELIVERIES.filter(
+    (r) => r.id.toLowerCase().includes(search.toLowerCase()) || r.customer.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
-    <div className={styles.container}>
-      {/* Page Title & Quick Action */}
-      <div className={styles.header}>
-        <div className={styles.titleArea}>
-          <h1 className={styles.title}>
-            <Truck size={28} />
-            <span>Delivery Orders</span>
-            <span style={{ fontSize: '13px', fontWeight: '600', padding: '2px 10px', borderRadius: '999px', backgroundColor: 'rgba(255, 255, 255, 0.08)', color: 'var(--text-muted)' }}>
-              Outgoing Stock
-            </span>
-          </h1>
-          <p className={styles.subtitle}>
-            Pick items, pack parcels, validate outbound shipments, and automatically deduct warehouse stock.
-          </p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', animation: 'fadeIn 0.4s var(--ease-out)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+          <Link href="/operations" style={{ color: 'var(--color-text-tertiary)', fontSize: 'var(--text-sm)', textDecoration: 'none' }}>Operations</Link>
+          <span style={{ color: 'var(--color-text-muted)' }}>/</span>
+          <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, color: 'var(--color-white)' }}>Customer Deliveries</h1>
         </div>
-
-        <Link href="/operations/deliveries/create" className={styles.btnPrimary}>
-          <Plus size={16} />
-          <span>New Delivery Order</span>
+        <Link href="/operations/deliveries/create" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 18px', background: 'var(--color-white)', color: 'var(--color-black)', borderRadius: 'var(--radius-md)', textDecoration: 'none', fontWeight: 600, fontSize: 'var(--text-sm)' }}>
+          <Plus size={15} /> New Delivery
         </Link>
       </div>
 
-      {/* KPI Metric Cards */}
-      <div className={styles.statsRow}>
-        <div className={styles.statCard}>
-          <div>
-            <div className={styles.statValue}>{totalCount}</div>
-            <div className={styles.statLabel}>Total Outgoing Orders</div>
-          </div>
-          <div className={styles.statIcon}><Layers size={22} /></div>
-        </div>
-
-        <div className={styles.statCard}>
-          <div>
-            <div className={styles.statValue} style={{ color: '#60a5fa' }}>{readyCount}</div>
-            <div className={styles.statLabel}>Ready for Validation</div>
-          </div>
-          <div className={styles.statIcon} style={{ borderColor: 'rgba(59, 130, 246, 0.3)', color: '#60a5fa' }}>
-            <PackageCheck size={22} />
-          </div>
-        </div>
-
-        <div className={styles.statCard}>
-          <div>
-            <div className={styles.statValue} style={{ color: '#fbbf24' }}>{waitingCount}</div>
-            <div className={styles.statLabel}>Waiting Availability</div>
-          </div>
-          <div className={styles.statIcon} style={{ borderColor: 'rgba(245, 158, 11, 0.3)', color: '#fbbf24' }}>
-            <Clock size={22} />
-          </div>
-        </div>
-
-        <div className={styles.statCard}>
-          <div>
-            <div className={styles.statValue} style={{ color: '#34d399' }}>{doneCount}</div>
-            <div className={styles.statLabel}>Shipped & Ledger Deducted</div>
-          </div>
-          <div className={styles.statIcon} style={{ borderColor: 'rgba(16, 185, 129, 0.3)', color: '#34d399' }}>
-            <CheckCircle2 size={22} />
-          </div>
-        </div>
+      <div style={{ position: 'relative', maxWidth: 340 }}>
+        <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-tertiary)' }} />
+        <input type="text" placeholder="Search deliveries…" value={search} onChange={(e) => setSearch(e.target.value)}
+          style={{ width: '100%', padding: '8px 12px 8px 36px', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-sans)', outline: 'none', boxSizing: 'border-box' }} />
       </div>
 
-      {/* Toolbar & Filters */}
-      <div className={styles.toolbar}>
-        <div className={styles.filterGroup}>
-          {['all', 'draft', 'waiting', 'ready', 'done'].map((st) => (
-            <button
-              key={st}
-              onClick={() => setStatusFilter(st)}
-              className={`${styles.filterTab} ${statusFilter === st ? styles.filterTabActive : ''}`}
-            >
-              {st.charAt(0).toUpperCase() + st.slice(1)}
-            </button>
-          ))}
-        </div>
-
-        <div className={styles.searchBox}>
-          <Search size={15} color="var(--text-muted)" />
-          <input 
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search reference, customer, or SKU..."
-            className={styles.searchInput}
-          />
-        </div>
-      </div>
-
-      {/* Delivery Orders Table */}
-      <div className={styles.tableContainer}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th className={styles.th}>Reference</th>
-              <th className={styles.th}>Customer</th>
-              <th className={styles.th}>Source Warehouse</th>
-              <th className={styles.th}>Scheduled Date</th>
-              <th className={styles.th}>Items Count</th>
-              <th className={styles.th}>Status</th>
-              <th className={styles.th} style={{ textAlign: 'right' }}>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                  Loading delivery orders...
-                </td>
+      <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-xl)', overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--color-border)', background: 'var(--color-surface-1)' }}>
+                {['Delivery ID', 'Customer', 'Items', 'Units', 'Priority', 'Date', 'Status', ''].map((h) => (
+                  <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{h}</th>
+                ))}
               </tr>
-            ) : deliveries.length === 0 ? (
-              <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
-                  No delivery orders found matching filter criteria.
-                </td>
-              </tr>
-            ) : (
-              deliveries.map((order) => (
-                <tr key={order.id} className={styles.tr}>
-                  <td className={styles.td}>
-                    <Link href={`/operations/deliveries/${order.id}`} className={styles.referenceLink}>
-                      <span>{order.id}</span>
-                      <ArrowUpRight size={14} color="var(--text-muted)" />
-                    </Link>
-                  </td>
-
-                  <td className={styles.td} style={{ fontWeight: '600', color: '#ffffff' }}>
-                    {order.customer}
-                  </td>
-
-                  <td className={styles.td}>
-                    <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                      {order.sourceLocation}
-                    </span>
-                  </td>
-
-                  <td className={styles.td}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', color: 'var(--text-muted)' }}>
-                      <Calendar size={13} />
-                      <span>{new Date(order.scheduledDate).toLocaleDateString()}</span>
-                    </div>
-                  </td>
-
-                  <td className={styles.td}>
-                    <span style={{
-                      padding: '3px 8px',
-                      borderRadius: '6px',
-                      backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                      fontSize: '12px',
-                      fontWeight: '700',
-                      color: '#ffffff',
-                    }}>
-                      {order.totalItems} line items
-                    </span>
-                  </td>
-
-                  <td className={styles.td}>
-                    <StatusBadge status={order.status} />
-                  </td>
-
-                  <td className={styles.td} style={{ textAlign: 'right' }}>
-                    <Link 
-                      href={`/operations/deliveries/${order.id}`}
-                      className={styles.btnSecondary}
-                      style={{ fontSize: '12px', padding: '6px 12px' }}
-                    >
-                      <span>Inspect & Pick</span>
-                    </Link>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filtered.map((r, idx) => {
+                const cfg = STATUS_CONFIG[r.status];
+                const pri = PRIORITY_CONFIG[r.priority];
+                const Icon = cfg.icon;
+                return (
+                  <tr key={r.id} style={{ borderBottom: idx < filtered.length - 1 ? '1px solid var(--color-border)' : 'none' }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-surface-1)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <td style={{ padding: '14px 16px', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--color-text-primary)', fontWeight: 600 }}>{r.id}</td>
+                    <td style={{ padding: '14px 16px', fontSize: 'var(--text-sm)', color: 'var(--color-text-primary)' }}>{r.customer}</td>
+                    <td style={{ padding: '14px 16px', fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>{r.items}</td>
+                    <td style={{ padding: '14px 16px', fontSize: 'var(--text-sm)', color: 'var(--color-text-primary)', fontWeight: 600 }}>{r.units}</td>
+                    <td style={{ padding: '14px 16px', fontSize: 11, fontWeight: 700, color: pri.color, fontFamily: 'var(--font-mono)' }}>{pri.label}</td>
+                    <td style={{ padding: '14px 16px', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', color: 'var(--color-text-tertiary)' }}>{r.date}</td>
+                    <td style={{ padding: '14px 16px' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 'var(--radius-full)', background: cfg.bg, color: cfg.color, fontSize: 11, fontWeight: 700 }}>
+                        <Icon size={11} /> {cfg.label}
+                      </span>
+                    </td>
+                    <td style={{ padding: '14px 16px' }}>
+                      <Link href={`/operations/deliveries/${r.id}`} style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--color-text-tertiary)', fontSize: 'var(--text-xs)', textDecoration: 'none' }}>
+                        <Eye size={14} /> View
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

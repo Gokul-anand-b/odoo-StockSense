@@ -1,253 +1,78 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
-import {
-  ArrowLeftRight,
-  PlusCircle,
-  Search,
-  CheckCircle2,
-  Clock,
-  Package,
-  MapPin,
-  ArrowRight,
-  Eye,
-  CheckSquare,
-  X
-} from 'lucide-react';
-import { useOperationStore } from '@/store/operationStore';
+import { ArrowLeftRight, Plus, Search, Eye, CheckCircle, Clock } from 'lucide-react';
+
+const MOCK_TRANSFERS = [
+  { id: 'TRF-4821', from: 'Zone A', to: 'Zone C', items: 4, units: 80, status: 'pending', date: '2026-09-23' },
+  { id: 'TRF-4820', from: 'Zone B', to: 'Zone D', items: 2, units: 50, status: 'complete', date: '2026-09-25' },
+  { id: 'TRF-4819', from: 'Zone C', to: 'Zone A', items: 6, units: 120, status: 'pending', date: '2026-09-26' },
+  { id: 'TRF-4818', from: 'Zone D', to: 'Zone B', items: 1, units: 30, status: 'complete', date: '2026-09-24' },
+];
 
 export default function TransfersPage() {
-  const {
-    transfers,
-    loading,
-    filters,
-    toast,
-    fetchTransfers,
-    setFilter,
-    validateTransfer,
-    clearToast
-  } = useOperationStore();
-
-  useEffect(() => {
-    fetchTransfers();
-  }, [fetchTransfers]);
-
-  // Derived Metrics
-  const totalTransfers = transfers.length;
-  const readyCount = transfers.filter((t) => t.status === 'ready' || t.status === 'draft').length;
-  const completedCount = transfers.filter((t) => t.status === 'done').length;
-  const totalItemsMoved = transfers
-    .filter((t) => t.status === 'done')
-    .reduce((acc, t) => acc + t.items.reduce((sum, i) => sum + parseInt(i.qtyToTransfer || 0, 10), 0), 0);
-
-  const getStatusBadge = (status) => {
-    switch (status.toLowerCase()) {
-      case 'done':
-        return <span className="bw-badge bw-badge-in-stock">Transferred</span>;
-      case 'ready':
-        return <span className="bw-badge bg-zinc-800 text-zinc-200 border border-zinc-600">Ready</span>;
-      case 'draft':
-        return <span className="bw-badge bw-badge-low-stock">Draft</span>;
-      default:
-        return <span className="bw-badge bg-zinc-900 text-zinc-400 border border-zinc-800">{status}</span>;
-    }
-  };
+  const [search, setSearch] = useState('');
+  const filtered = MOCK_TRANSFERS.filter((r) => r.id.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div className="space-y-8 animate-fade-in pb-12">
-      {/* Toast Alert */}
-      {toast && (
-        <div className="fixed bottom-6 right-6 z-50 bg-[#121215] border border-white text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-fade-in">
-          <CheckCircle2 className="w-5 h-5 text-white" />
-          <span className="text-sm font-semibold">{toast.message}</span>
-          <button onClick={clearToast} className="text-zinc-400 hover:text-white ml-2">
-            <X className="w-4 h-4" />
-          </button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', animation: 'fadeIn 0.4s var(--ease-out)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+          <Link href="/operations" style={{ color: 'var(--color-text-tertiary)', fontSize: 'var(--text-sm)', textDecoration: 'none' }}>Operations</Link>
+          <span style={{ color: 'var(--color-text-muted)' }}>/</span>
+          <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, color: 'var(--color-white)' }}>Internal Transfers</h1>
         </div>
-      )}
-
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#27272a] pb-6">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
-              <ArrowLeftRight className="w-8 h-8 text-white" />
-              Internal Stock Transfers
-            </h1>
-            <span className="bw-badge bg-white text-black font-bold font-mono">
-              LOCATION MOVEMENTS
-            </span>
-          </div>
-          <p className="text-sm text-zinc-400 mt-1">
-            Move inventory between internal warehouse locations and production floors. Total company stock remains unchanged.
-          </p>
-        </div>
-
-        <Link href="/operations/transfers/create" className="bw-button-primary text-xs">
-          <PlusCircle className="w-4 h-4" /> New Transfer
+        <Link href="/operations/transfers/create" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 18px', background: 'var(--color-white)', color: 'var(--color-black)', borderRadius: 'var(--radius-md)', textDecoration: 'none', fontWeight: 600, fontSize: 'var(--text-sm)' }}>
+          <Plus size={15} /> New Transfer
         </Link>
       </div>
-
-      {/* Summary KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bw-card p-5 space-y-2">
-          <div className="flex justify-between items-center text-zinc-400">
-            <span className="text-xs font-mono uppercase tracking-wider font-semibold">
-              Total Transfers
-            </span>
-            <ArrowLeftRight className="w-5 h-5 text-white" />
-          </div>
-          <p className="text-3xl font-black text-white font-mono">{totalTransfers}</p>
-          <p className="text-[11px] text-zinc-500 font-mono">Logged internal movements</p>
-        </div>
-
-        <div className="bw-card p-5 space-y-2">
-          <div className="flex justify-between items-center text-zinc-400">
-            <span className="text-xs font-mono uppercase tracking-wider font-semibold">
-              In-Transit / Pending
-            </span>
-            <Clock className="w-5 h-5 text-white" />
-          </div>
-          <p className="text-3xl font-black text-white font-mono">{readyCount}</p>
-          <p className="text-[11px] text-zinc-500 font-mono">Awaiting location execution</p>
-        </div>
-
-        <div className="bw-card p-5 space-y-2">
-          <div className="flex justify-between items-center text-zinc-400">
-            <span className="text-xs font-mono uppercase tracking-wider font-semibold">
-              Completed Transfers
-            </span>
-            <CheckCircle2 className="w-5 h-5 text-white" />
-          </div>
-          <p className="text-3xl font-black text-white font-mono">{completedCount}</p>
-          <p className="text-[11px] text-zinc-500 font-mono">Quants updated & logged</p>
-        </div>
-
-        <div className="bw-card p-5 space-y-2">
-          <div className="flex justify-between items-center text-zinc-400">
-            <span className="text-xs font-mono uppercase tracking-wider font-semibold">
-              Relocated Units
-            </span>
-            <Package className="w-5 h-5 text-white" />
-          </div>
-          <p className="text-3xl font-black text-white font-mono">{totalItemsMoved}</p>
-          <p className="text-[11px] text-zinc-500 font-mono">Total units moved internally</p>
-        </div>
+      <div style={{ position: 'relative', maxWidth: 340 }}>
+        <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-tertiary)' }} />
+        <input type="text" placeholder="Search transfers…" value={search} onChange={(e) => setSearch(e.target.value)}
+          style={{ width: '100%', padding: '8px 12px 8px 36px', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-sans)', outline: 'none', boxSizing: 'border-box' }} />
       </div>
-
-      {/* Toolbar & Filter Bar */}
-      <div className="bw-card p-4 space-y-4">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="relative w-full md:w-96">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-            <input
-              type="text"
-              placeholder="Search Transfer ID, Source, Destination or Product..."
-              value={filters.search}
-              onChange={(e) => setFilter('search', e.target.value)}
-              className="bw-input pl-9 text-xs"
-            />
-          </div>
-
-          <div className="flex items-center gap-3 w-full md:w-auto justify-end">
-            <select
-              value={filters.status}
-              onChange={(e) => setFilter('status', e.target.value)}
-              className="bw-input w-auto text-xs bg-[#18181c]"
-            >
-              <option value="all">All Statuses</option>
-              <option value="draft">Draft</option>
-              <option value="ready">Ready</option>
-              <option value="done">Transferred (Done)</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Transfers Data Table */}
-      <div className="bw-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="border-b border-[#27272a] bg-[#09090b]/60 text-zinc-400 font-mono uppercase tracking-wider">
-                <th className="p-4">Transfer Reference</th>
-                <th className="p-4">Source Location (From)</th>
-                <th className="p-4">Destination Location (To)</th>
-                <th className="p-4">Items Count</th>
-                <th className="p-4">Status</th>
-                <th className="p-4 text-right">Actions</th>
+      <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-xl)', overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid var(--color-border)', background: 'var(--color-surface-1)' }}>
+              {['Transfer ID', 'From Zone', 'To Zone', 'Items', 'Units', 'Date', 'Status', ''].map((h) => (
+                <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((r, idx) => (
+              <tr key={r.id} style={{ borderBottom: idx < filtered.length - 1 ? '1px solid var(--color-border)' : 'none' }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-surface-1)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+              >
+                <td style={{ padding: '14px 16px', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--color-text-primary)', fontWeight: 600 }}>{r.id}</td>
+                <td style={{ padding: '14px 16px', fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>{r.from}</td>
+                <td style={{ padding: '14px 16px', fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>{r.to}</td>
+                <td style={{ padding: '14px 16px', fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>{r.items}</td>
+                <td style={{ padding: '14px 16px', fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--color-text-primary)' }}>{r.units}</td>
+                <td style={{ padding: '14px 16px', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', color: 'var(--color-text-tertiary)' }}>{r.date}</td>
+                <td style={{ padding: '14px 16px' }}>
+                  {r.status === 'complete' ? (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 'var(--radius-full)', background: 'rgba(16,185,129,0.1)', color: 'var(--color-success)', fontSize: 11, fontWeight: 700 }}>
+                      <CheckCircle size={11} /> Complete
+                    </span>
+                  ) : (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 'var(--radius-full)', background: 'rgba(245,158,11,0.1)', color: 'var(--color-warning)', fontSize: 11, fontWeight: 700 }}>
+                      <Clock size={11} /> Pending
+                    </span>
+                  )}
+                </td>
+                <td style={{ padding: '14px 16px' }}>
+                  <Link href={`/operations/transfers/${r.id}`} style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--color-text-tertiary)', fontSize: 'var(--text-xs)', textDecoration: 'none' }}>
+                    <Eye size={14} /> View
+                  </Link>
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-[#27272a]">
-              {transfers.length === 0 ? (
-                <tr>
-                  <td colSpan="6" className="p-12 text-center text-zinc-500">
-                    <ArrowLeftRight className="w-10 h-10 mx-auto mb-2 text-zinc-600" />
-                    <p className="text-sm font-semibold text-white">No internal transfers found</p>
-                    <p className="text-xs text-zinc-400 mt-1">Create a transfer order to move stock between locations.</p>
-                  </td>
-                </tr>
-              ) : (
-                transfers.map((transfer) => (
-                  <tr key={transfer.id} className="hover:bg-[#18181b]/50 transition-colors">
-                    <td className="p-4 font-mono font-bold text-white text-sm">
-                      <Link href={`/operations/transfers/${transfer.id}`} className="hover:underline">
-                        {transfer.id}
-                      </Link>
-                    </td>
-
-                    <td className="p-4 text-zinc-300 font-mono">
-                      <div className="flex items-center gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-zinc-400" />
-                        <span>{transfer.sourceLocation}</span>
-                      </div>
-                    </td>
-
-                    <td className="p-4 text-white font-mono font-semibold">
-                      <div className="flex items-center gap-1.5">
-                        <ArrowRight className="w-3.5 h-3.5 text-zinc-400" />
-                        <span>{transfer.destinationLocation}</span>
-                      </div>
-                    </td>
-
-                    <td className="p-4 font-mono">
-                      <span className="bg-[#18181b] border border-[#27272a] px-2 py-0.5 rounded text-white font-bold">
-                        {transfer.items ? transfer.items.length : transfer.totalItems} items
-                      </span>
-                    </td>
-
-                    <td className="p-4">{getStatusBadge(transfer.status)}</td>
-
-                    <td className="p-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Link
-                          href={`/operations/transfers/${transfer.id}`}
-                          className="bw-button-outline py-1 px-2.5 text-xs"
-                        >
-                          <Eye className="w-3.5 h-3.5" /> Specs
-                        </Link>
-
-                        {transfer.status !== 'done' && (
-                          <button
-                            onClick={async () => {
-                              if (confirm(`Confirm transfer ${transfer.id}? Location quants will update while total company stock remains unchanged.`)) {
-                                await validateTransfer(transfer.id);
-                              }
-                            }}
-                            className="bw-button-primary py-1 px-2.5 text-xs"
-                          >
-                            <CheckSquare className="w-3.5 h-3.5" /> Execute
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

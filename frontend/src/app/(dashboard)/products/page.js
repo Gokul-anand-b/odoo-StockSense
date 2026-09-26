@@ -1,305 +1,119 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
-import {
-  Package,
-  PlusCircle,
-  FolderTree,
-  LayoutGrid,
-  List,
-  Search,
-  Filter,
-  AlertTriangle,
-  Boxes,
-  DollarSign,
-  TrendingUp,
-  X,
-  Sliders,
-  CheckCircle2,
-  RefreshCw
-} from 'lucide-react';
-import { useProductStore } from '@/store/productStore';
-import ProductTable from '@/components/products/ProductTable';
-import ProductCard from '@/components/products/ProductCard';
-import ProductForm from '@/components/products/ProductForm';
-import ReorderRuleForm from '@/components/products/ReorderRuleForm';
-import CategoryManager from '@/components/products/CategoryManager';
+import { Boxes, Plus, Search, Filter, Tag, Eye } from 'lucide-react';
+
+const MOCK_PRODUCTS = [
+  { id: 'SKU-00192', name: 'Wireless Earbuds Pro', category: 'Audio', stock: 8, reorderPt: 50, price: 89.99, status: 'critical' },
+  { id: 'SKU-00781', name: 'Mechanical Keyboard TKL', category: 'Peripherals', stock: 23, reorderPt: 30, price: 129.99, status: 'warning' },
+  { id: 'SKU-00445', name: 'USB-C Hub 7-Port', category: 'Connectivity', stock: 0, reorderPt: 25, price: 49.99, status: 'critical' },
+  { id: 'SKU-00210', name: 'Monitor Stand Adjustable', category: 'Furniture', stock: 142, reorderPt: 20, price: 74.99, status: 'healthy' },
+  { id: 'SKU-00388', name: 'Webcam 4K Ultra', category: 'Video', stock: 67, reorderPt: 40, price: 199.99, status: 'healthy' },
+  { id: 'SKU-00512', name: 'Laptop Docking Station', category: 'Connectivity', stock: 31, reorderPt: 30, price: 249.99, status: 'warning' },
+  { id: 'SKU-00901', name: 'LED Monitor 27"', category: 'Display', stock: 55, reorderPt: 15, price: 399.99, status: 'healthy' },
+  { id: 'SKU-00302', name: 'Gaming Mouse RGB', category: 'Peripherals', stock: 110, reorderPt: 30, price: 59.99, status: 'healthy' },
+];
+
+const STATUS_CONFIG = {
+  critical: { label: 'Critical', color: 'var(--color-error)', bg: 'rgba(239,68,68,0.1)' },
+  warning: { label: 'Warning', color: 'var(--color-warning)', bg: 'rgba(245,158,11,0.1)' },
+  healthy: { label: 'Healthy', color: 'var(--color-success)', bg: 'rgba(16,185,129,0.1)' },
+};
 
 export default function ProductsPage() {
-  const {
-    products,
-    categories,
-    loading,
-    filters,
-    viewMode,
-    toast,
-    fetchProducts,
-    fetchCategories,
-    setFilter,
-    resetFilters,
-    setViewMode,
-    clearToast
-  } = useProductStore();
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('all');
 
-  const [editingProduct, setEditingProduct] = useState(null);
-  const [reorderProduct, setReorderProduct] = useState(null);
-  const [showCategoryModal, setShowCategoryModal] = useState(false);
-
-  useEffect(() => {
-    fetchProducts();
-    fetchCategories();
-  }, [fetchProducts, fetchCategories]);
-
-  // Derived Metrics
-  const totalProducts = products.length;
-  const totalValuation = products.reduce(
-    (acc, p) => acc + (parseFloat(p.price || 0) * parseInt(p.stockOnHand || 0, 10)),
-    0
+  const filtered = MOCK_PRODUCTS.filter(
+    (p) =>
+      (filter === 'all' || p.status === filter) &&
+      (p.name.toLowerCase().includes(search.toLowerCase()) || p.id.toLowerCase().includes(search.toLowerCase()) || p.category.toLowerCase().includes(search.toLowerCase()))
   );
-  const lowStockCount = products.filter(
-    (p) => p.stockOnHand > 0 && p.stockOnHand <= (p.minStockLevel || 10)
-  ).length;
-  const outOfStockCount = products.filter((p) => p.stockOnHand <= 0).length;
 
   return (
-    <div className="space-y-8 animate-fade-in pb-12">
-      {/* Toast Alert */}
-      {toast && (
-        <div className="fixed bottom-6 right-6 z-50 bg-[#121215] border border-white text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-fade-in">
-          <CheckCircle2 className="w-5 h-5 text-white" />
-          <span className="text-sm font-semibold">{toast.message}</span>
-          <button onClick={clearToast} className="text-zinc-400 hover:text-white ml-2">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
-      {/* Header & Page Title */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#27272a] pb-6">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-black text-white tracking-tight">
-              Products Inventory Directory
-            </h1>
-            <span className="bw-badge bg-white text-black font-bold font-mono">
-              BLACK & WHITE CORE
-            </span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)', animation: 'fadeIn 0.4s var(--ease-out)' }}>
+      {/* Header */}
+      <section style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-4)', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-xl)', padding: 'var(--space-6) var(--space-8)', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, rgba(255,255,255,0.3), transparent)' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
+          <div style={{ width: 44, height: 44, borderRadius: 'var(--radius-md)', background: 'var(--color-surface-3)', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-white)' }}>
+            <Boxes size={20} />
           </div>
-          <p className="text-sm text-zinc-400 mt-1">
-            Real-time stock catalog, SKU specifications, pricing, and reorder controls.
-          </p>
+          <div>
+            <h1 style={{ fontSize: 'var(--text-2xl)', fontWeight: 700, color: 'var(--color-white)', letterSpacing: 'var(--tracking-tight)' }}>Product Catalog</h1>
+            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)', marginTop: 4 }}>Manage SKUs, stock levels, and reorder thresholds.</p>
+          </div>
         </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowCategoryModal(true)}
-            className="bw-button-outline text-xs"
-          >
-            <FolderTree className="w-4 h-4" /> Categories
-          </button>
-          <Link href="/products/create" className="bw-button-primary text-xs">
-            <PlusCircle className="w-4 h-4" /> Add Product
+        <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+          <Link href="/products/categories" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', textDecoration: 'none', fontSize: 'var(--text-sm)' }}>
+            <Tag size={14} /> Categories
+          </Link>
+          <Link href="/products/create" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: 'var(--color-white)', color: 'var(--color-black)', borderRadius: 'var(--radius-md)', textDecoration: 'none', fontWeight: 600, fontSize: 'var(--text-sm)' }}>
+            <Plus size={14} /> Add Product
           </Link>
         </div>
-      </div>
+      </section>
 
-      {/* KPI Metrics Dashboard Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bw-card p-5 space-y-2">
-          <div className="flex justify-between items-center text-zinc-400">
-            <span className="text-xs font-mono uppercase tracking-wider font-semibold">
-              Total SKUs
-            </span>
-            <Package className="w-5 h-5 text-white" />
-          </div>
-          <p className="text-3xl font-black text-white font-mono">{totalProducts}</p>
-          <p className="text-[11px] text-zinc-500 font-mono">Active catalog listings</p>
+      {/* Filters Row */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
+        <div style={{ position: 'relative' }}>
+          <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-tertiary)' }} />
+          <input type="text" placeholder="Search products, SKU, category…" value={search} onChange={(e) => setSearch(e.target.value)}
+            style={{ width: 320, padding: '8px 12px 8px 36px', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-sans)', outline: 'none' }} />
         </div>
-
-        <div className="bw-card p-5 space-y-2">
-          <div className="flex justify-between items-center text-zinc-400">
-            <span className="text-xs font-mono uppercase tracking-wider font-semibold">
-              Inventory Value
-            </span>
-            <DollarSign className="w-5 h-5 text-white" />
-          </div>
-          <p className="text-3xl font-black text-white font-mono">
-            ${totalValuation.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </p>
-          <p className="text-[11px] text-zinc-500 font-mono">Total on-hand valuation</p>
-        </div>
-
-        <div className="bw-card p-5 space-y-2">
-          <div className="flex justify-between items-center text-zinc-400">
-            <span className="text-xs font-mono uppercase tracking-wider font-semibold">
-              Low Stock Warnings
-            </span>
-            <AlertTriangle className="w-5 h-5 text-white" />
-          </div>
-          <p className="text-3xl font-black text-white font-mono">{lowStockCount}</p>
-          <p className="text-[11px] text-zinc-500 font-mono">Requires replenishment</p>
-        </div>
-
-        <div className="bw-card p-5 space-y-2">
-          <div className="flex justify-between items-center text-zinc-400">
-            <span className="text-xs font-mono uppercase tracking-wider font-semibold">
-              Out of Stock
-            </span>
-            <Boxes className="w-5 h-5 text-white" />
-          </div>
-          <p className="text-3xl font-black text-white font-mono">{outOfStockCount}</p>
-          <p className="text-[11px] text-zinc-500 font-mono">Zero inventory count</p>
-        </div>
-      </div>
-
-      {/* Toolbar & Filters */}
-      <div className="bw-card p-4 space-y-4">
-        <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
-          {/* Search Box */}
-          <div className="relative w-full lg:w-96">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-            <input
-              type="text"
-              placeholder="Filter by SKU, Product Name, or Barcode..."
-              value={filters.search}
-              onChange={(e) => setFilter('search', e.target.value)}
-              className="bw-input pl-9 text-xs"
-            />
-          </div>
-
-          {/* Select Filters */}
-          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-end">
-            <select
-              value={filters.category}
-              onChange={(e) => setFilter('category', e.target.value)}
-              className="bw-input w-auto text-xs bg-[#18181c]"
-            >
-              <option value="all">All Categories</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={filters.stockStatus}
-              onChange={(e) => setFilter('stockStatus', e.target.value)}
-              className="bw-input w-auto text-xs bg-[#18181c]"
-            >
-              <option value="all">All Stock Statuses</option>
-              <option value="in-stock">In Stock</option>
-              <option value="low-stock">Low Stock</option>
-              <option value="out-of-stock">Out of Stock</option>
-            </select>
-
-            {/* View Mode Toggle */}
-            <div className="flex items-center bg-[#18181b] border border-[#27272a] rounded-lg p-1">
-              <button
-                onClick={() => setViewMode('table')}
-                className={`p-1.5 rounded transition-colors ${
-                  viewMode === 'table' ? 'bg-white text-black font-bold' : 'text-zinc-400 hover:text-white'
-                }`}
-                title="Table View"
-              >
-                <List className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-1.5 rounded transition-colors ${
-                  viewMode === 'grid' ? 'bg-white text-black font-bold' : 'text-zinc-400 hover:text-white'
-                }`}
-                title="Grid Cards View"
-              >
-                <LayoutGrid className="w-4 h-4" />
-              </button>
-            </div>
-
-            <button
-              onClick={resetFilters}
-              className="p-2 text-zinc-400 hover:text-white transition-colors"
-              title="Reset Filters"
-            >
-              <RefreshCw className="w-4 h-4" />
+        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+          {['all', 'critical', 'warning', 'healthy'].map((f) => (
+            <button key={f} onClick={() => setFilter(f)}
+              style={{ padding: '6px 14px', borderRadius: 'var(--radius-full)', border: '1px solid', borderColor: filter === f ? (STATUS_CONFIG[f]?.color || 'var(--color-border-hover)') : 'var(--color-border)', background: filter === f ? (STATUS_CONFIG[f]?.bg || 'var(--color-surface-2)') : 'transparent', color: filter === f ? (STATUS_CONFIG[f]?.color || 'var(--color-text-primary)') : 'var(--color-text-secondary)', fontSize: 'var(--text-xs)', cursor: 'pointer', fontFamily: 'var(--font-sans)', fontWeight: filter === f ? 700 : 400, transition: 'all 0.15s', textTransform: 'capitalize' }}>
+              {f === 'all' ? 'All' : STATUS_CONFIG[f]?.label}
             </button>
-          </div>
+          ))}
         </div>
       </div>
 
-      {/* Main Content Area */}
-      {loading ? (
-        <div className="bw-card p-16 text-center space-y-3">
-          <RefreshCw className="w-8 h-8 mx-auto text-white animate-spin" />
-          <p className="text-sm font-semibold text-zinc-300">Fetching Inventory Records...</p>
+      {/* Product Table */}
+      <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-xl)', overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--color-border)', background: 'var(--color-surface-1)' }}>
+                {['SKU', 'Product Name', 'Category', 'In Stock', 'Reorder Pt.', 'Unit Price', 'Status', ''].map((h) => (
+                  <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((p, idx) => {
+                const cfg = STATUS_CONFIG[p.status];
+                return (
+                  <tr key={p.id} style={{ borderBottom: idx < filtered.length - 1 ? '1px solid var(--color-border)' : 'none' }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-surface-1)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <td style={{ padding: '14px 16px', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)' }}>{p.id}</td>
+                    <td style={{ padding: '14px 16px', fontSize: 'var(--text-sm)', color: 'var(--color-text-primary)', fontWeight: 500 }}>{p.name}</td>
+                    <td style={{ padding: '14px 16px' }}>
+                      <span style={{ padding: '2px 10px', borderRadius: 'var(--radius-full)', background: 'var(--color-surface-3)', color: 'var(--color-text-secondary)', fontSize: 'var(--text-xs)' }}>{p.category}</span>
+                    </td>
+                    <td style={{ padding: '14px 16px', fontSize: 'var(--text-sm)', fontWeight: 700, color: p.stock === 0 ? 'var(--color-error)' : p.stock <= p.reorderPt ? 'var(--color-warning)' : 'var(--color-text-primary)' }}>{p.stock}</td>
+                    <td style={{ padding: '14px 16px', fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>{p.reorderPt}</td>
+                    <td style={{ padding: '14px 16px', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-mono)', color: 'var(--color-text-primary)' }}>${p.price}</td>
+                    <td style={{ padding: '14px 16px' }}>
+                      <span style={{ padding: '3px 10px', borderRadius: 'var(--radius-full)', background: cfg.bg, color: cfg.color, fontSize: 11, fontWeight: 700 }}>{cfg.label}</span>
+                    </td>
+                    <td style={{ padding: '14px 16px' }}>
+                      <Link href={`/products/${p.id}`} style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--color-text-tertiary)', fontSize: 'var(--text-xs)', textDecoration: 'none' }}>
+                        <Eye size={14} /> View
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-      ) : viewMode === 'table' ? (
-        <ProductTable
-          products={products}
-          onEdit={(prod) => setEditingProduct(prod)}
-          onReorderRule={(prod) => setReorderProduct(prod)}
-        />
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {products.length === 0 ? (
-            <div className="col-span-full bw-card p-16 text-center space-y-3">
-              <Package className="w-12 h-12 mx-auto text-zinc-600" />
-              <p className="text-lg font-bold text-white">No products found</p>
-              <p className="text-xs text-zinc-400">
-                Adjust your filters or add a new product to get started.
-              </p>
-            </div>
-          ) : (
-            products.map((p) => (
-              <ProductCard
-                key={p.id}
-                product={p}
-                onEdit={(prod) => setEditingProduct(prod)}
-              />
-            ))
-          )}
-        </div>
-      )}
-
-      {/* Modal: Edit Product */}
-      {editingProduct && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="max-w-4xl w-full my-8">
-            <ProductForm
-              initialData={editingProduct}
-              onSuccess={() => {
-                setEditingProduct(null);
-                fetchProducts();
-              }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Modal: Reorder Rules */}
-      {reorderProduct && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="max-w-2xl w-full">
-            <ReorderRuleForm
-              product={reorderProduct}
-              onClose={() => setReorderProduct(null)}
-              onSuccess={() => {
-                setReorderProduct(null);
-                fetchProducts();
-              }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Modal: Category Manager */}
-      {showCategoryModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="max-w-4xl w-full my-8">
-            <CategoryManager onClose={() => setShowCategoryModal(false)} />
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }
