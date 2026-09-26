@@ -10,6 +10,7 @@ from .views import (
     ReceiptDetailView,
     ReceiptValidateView,
     SupplierListAPIView,
+    AdjustmentListCreateView,
 )
 
 urlpatterns = [
@@ -24,5 +25,9 @@ urlpatterns = [
 
     # ── Suppliers ──
     path('suppliers/', SupplierListAPIView.as_view(), name='supplier-list'),
+
+    # ── Stock Adjustments ──
+    path('adjustments/', AdjustmentListCreateView.as_view(), name='adjustment-list-create'),
 ]
+
 

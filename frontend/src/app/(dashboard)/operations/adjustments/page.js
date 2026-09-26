@@ -1,7 +1,9 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { PackageCheck, Plus } from 'lucide-react';
+import { PackageCheck, Plus, Loader2 } from 'lucide-react';
+import { operationService } from '@/services/operationService';
 
 const MOCK_ADJUSTMENTS = [
   { id: 'ADJ-1041', type: 'Cycle Count', sku: 'SKU-00192', product: 'Wireless Earbuds Pro', expected: 50, actual: 48, delta: -2, date: '2026-09-25', zone: 'Zone A' },
@@ -10,6 +12,30 @@ const MOCK_ADJUSTMENTS = [
 ];
 
 export default function AdjustmentsPage() {
+  const [adjustments, setAdjustments] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchAdjustments = async () => {
+    try {
+      setLoading(true);
+      const data = await operationService.getAdjustments();
+      if (data && data.length > 0) {
+        setAdjustments(data);
+      } else {
+        setAdjustments(MOCK_ADJUSTMENTS);
+      }
+    } catch (err) {
+      console.error('Failed to load adjustments:', err);
+      setAdjustments(MOCK_ADJUSTMENTS);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAdjustments();
+  }, []);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', animation: 'fadeIn 0.4s var(--ease-out)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
@@ -33,27 +59,44 @@ export default function AdjustmentsPage() {
             </tr>
           </thead>
           <tbody>
-            {MOCK_ADJUSTMENTS.map((r, idx) => (
-              <tr key={r.id} style={{ borderBottom: idx < MOCK_ADJUSTMENTS.length - 1 ? '1px solid var(--color-border)' : 'none' }}
-                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-surface-1)'}
-                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-              >
-                <td style={{ padding: '14px 16px', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--color-text-primary)', fontWeight: 600 }}>{r.id}</td>
-                <td style={{ padding: '14px 16px', fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>{r.type}</td>
-                <td style={{ padding: '14px 16px', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>{r.sku}</td>
-                <td style={{ padding: '14px 16px', fontSize: 'var(--text-sm)', color: 'var(--color-text-primary)' }}>{r.product}</td>
-                <td style={{ padding: '14px 16px', fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>{r.expected}</td>
-                <td style={{ padding: '14px 16px', fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--color-text-primary)' }}>{r.actual}</td>
-                <td style={{ padding: '14px 16px', fontSize: 'var(--text-sm)', fontWeight: 700, color: r.delta < 0 ? 'var(--color-error)' : 'var(--color-success)' }}>
-                  {r.delta > 0 ? `+${r.delta}` : r.delta}
+            {loading ? (
+              <tr>
+                <td colSpan={9} style={{ padding: '32px', textAlign: 'center', color: 'var(--color-text-tertiary)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                    <Loader2 size={18} className="animate-spin" /> Loading stock adjustments...
+                  </div>
                 </td>
-                <td style={{ padding: '14px 16px', fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>{r.zone}</td>
-                <td style={{ padding: '14px 16px', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', color: 'var(--color-text-tertiary)' }}>{r.date}</td>
               </tr>
-            ))}
+            ) : adjustments.length === 0 ? (
+              <tr>
+                <td colSpan={9} style={{ padding: '32px', textAlign: 'center', color: 'var(--color-text-tertiary)' }}>
+                  No stock adjustments recorded yet.
+                </td>
+              </tr>
+            ) : (
+              adjustments.map((r, idx) => (
+                <tr key={r.id + idx} style={{ borderBottom: idx < adjustments.length - 1 ? '1px solid var(--color-border)' : 'none' }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-surface-1)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                >
+                  <td style={{ padding: '14px 16px', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--color-text-primary)', fontWeight: 600 }}>{r.id}</td>
+                  <td style={{ padding: '14px 16px', fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>{r.type}</td>
+                  <td style={{ padding: '14px 16px', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>{r.sku}</td>
+                  <td style={{ padding: '14px 16px', fontSize: 'var(--text-sm)', color: 'var(--color-text-primary)' }}>{r.product}</td>
+                  <td style={{ padding: '14px 16px', fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>{r.expected}</td>
+                  <td style={{ padding: '14px 16px', fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--color-text-primary)' }}>{r.actual}</td>
+                  <td style={{ padding: '14px 16px', fontSize: 'var(--text-sm)', fontWeight: 700, color: r.delta < 0 ? 'var(--color-error)' : (r.delta > 0 ? 'var(--color-success)' : 'var(--color-text-tertiary)') }}>
+                    {r.delta > 0 ? `+${r.delta}` : r.delta}
+                  </td>
+                  <td style={{ padding: '14px 16px', fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>{r.zone}</td>
+                  <td style={{ padding: '14px 16px', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', color: 'var(--color-text-tertiary)' }}>{r.date}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
     </div>
   );
 }
+

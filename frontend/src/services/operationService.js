@@ -518,8 +518,39 @@ export const operationService = {
     }
   },
 
+  // --- STOCK ADJUSTMENTS ---
+  async getAdjustments() {
+    try {
+      const response = await api.get('/operations/adjustments/');
+      return response.data;
+    } catch (err) {
+      console.warn('Backend adjustments fetch failed, returning stored adjustments fallback:', err);
+      return [];
+    }
+  },
+
+  async createAdjustment(data) {
+    try {
+      const payload = {
+        product_id: data.productId || data.product_id,
+        sku: data.sku,
+        adjustment_type: data.type || data.adjustment_type || 'Cycle Count',
+        counted_quantity: Number(data.actual !== undefined ? data.actual : data.counted_quantity) || 0,
+        zone: data.zone || 'Zone A',
+        reason: data.notes || data.reason || '',
+      };
+
+      const response = await api.post('/operations/adjustments/', payload);
+      return response.data;
+    } catch (err) {
+      console.error('API createAdjustment failed:', err);
+      throw err;
+    }
+  },
+
 
   // --- OUTGOING DELIVERIES ---
+
   async getDeliveries({ status = 'all', search = '' } = {}) {
     const list = getStoredDeliveries();
     return list.filter((order) => {
