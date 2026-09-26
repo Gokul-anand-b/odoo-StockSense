@@ -56,11 +56,12 @@ class InternalTransferSerializer(serializers.ModelSerializer):
         ]
 
     def get_items_count(self, obj):
-        count = obj.items.count()
-        return count if count > 0 else 1
+        items = list(obj.items.all())
+        return len(items) if len(items) > 0 else 1
 
     def get_total_units(self, obj):
-        total = sum(item.requested_quantity for item in obj.items.all())
+        items = list(obj.items.all())
+        total = sum(item.requested_quantity for item in items if item.requested_quantity)
         return int(total) if total > 0 else 50
 
     def get_from_zone(self, obj):
@@ -84,6 +85,11 @@ class InternalTransferSerializer(serializers.ModelSerializer):
     def get_responsible_name(self, obj):
         if not obj.responsible_user_id:
             return 'Unassigned'
+        
+        user_map = self.context.get('user_map')
+        if user_map is not None:
+            return user_map.get(str(obj.responsible_user_id), str(obj.responsible_user_id))
+
         try:
             user = User.objects.filter(id=obj.responsible_user_id).first()
             if user:
@@ -145,3 +151,4 @@ class ReceiptOperationSerializer(serializers.ModelSerializer):
     def get_total_units(self, obj):
         total = sum(item.demanded_or_expected for item in obj.items.all())
         return int(total) if total > 0 else 50
+

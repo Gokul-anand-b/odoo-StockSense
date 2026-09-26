@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { History, Search, ArrowUpRight, ArrowDownLeft, ArrowLeftRight, Filter } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { History, Search, ArrowUpRight, ArrowDownLeft, ArrowLeftRight, Filter, Loader2, RefreshCw, Inbox } from 'lucide-react';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
 const MOVE_TYPES = {
   receipt: { label: 'Receipt', icon: ArrowDownLeft, color: 'var(--color-success)', bg: 'rgba(16,185,129,0.1)' },
@@ -9,26 +11,55 @@ const MOVE_TYPES = {
   transfer: { label: 'Transfer', icon: ArrowLeftRight, color: 'var(--color-warning)', bg: 'rgba(245,158,11,0.1)' },
 };
 
-const MOCK_MOVES = [
-  { id: 'MV-8801', type: 'receipt', sku: 'SKU-00210', product: 'Monitor Stand Adjustable', qty: 240, from: 'Supplier', to: 'Zone D', user: 'Priya M.', date: '2026-09-25 14:22' },
-  { id: 'MV-8800', type: 'delivery', sku: 'SKU-00192', product: 'Wireless Earbuds Pro', qty: 12, from: 'Zone A', to: 'Customer', user: 'Arjun K.', date: '2026-09-25 13:10' },
-  { id: 'MV-8799', type: 'transfer', sku: 'SKU-00781', product: 'Mechanical Keyboard TKL', qty: 20, from: 'Zone B', to: 'Zone A', user: 'Gokul A.', date: '2026-09-25 11:45' },
-  { id: 'MV-8798', type: 'receipt', sku: 'SKU-00388', product: 'Webcam 4K Ultra', qty: 60, from: 'Supplier', to: 'Zone B', user: 'Priya M.', date: '2026-09-24 16:00' },
-  { id: 'MV-8797', type: 'delivery', sku: 'SKU-00512', product: 'Laptop Docking Station', qty: 5, from: 'Zone C', to: 'Customer', user: 'Arjun K.', date: '2026-09-24 14:30' },
-  { id: 'MV-8796', type: 'transfer', sku: 'SKU-00901', product: 'LED Monitor 27"', qty: 8, from: 'Zone D', to: 'Zone C', user: 'Gokul A.', date: '2026-09-24 10:15' },
-  { id: 'MV-8795', type: 'receipt', sku: 'SKU-00302', product: 'Gaming Mouse RGB', qty: 100, from: 'Supplier', to: 'Zone A', user: 'Priya M.', date: '2026-09-23 09:00' },
-];
+const STATUS_COLORS = {
+  PENDING: { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
+  DRAFT: { color: '#6b7280', bg: 'rgba(107,114,128,0.1)' },
+  SCHEDULED: { color: '#6366f1', bg: 'rgba(99,102,241,0.1)' },
+  IN_PROGRESS: { color: '#3b82f6', bg: 'rgba(59,130,246,0.1)' },
+  COMPLETED: { color: '#10b981', bg: 'rgba(16,185,129,0.1)' },
+  CANCELLED: { color: '#ef4444', bg: 'rgba(239,68,68,0.1)' },
+};
 
 export default function MoveHistoryPage() {
+  const [moves, setMoves] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [lastUpdated, setLastUpdated] = useState(null);
 
-  const filtered = MOCK_MOVES.filter(
+  const fetchMoves = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/stock-ledger/moves/`);
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
+      const data = await res.json();
+      setMoves(data);
+      setLastUpdated(new Date());
+      setError(null);
+    } catch (err) {
+      console.error('Failed to fetch move history:', err);
+      setError('Failed to load move history');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchMoves();
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(fetchMoves, 30000);
+    return () => clearInterval(interval);
+  }, [fetchMoves]);
+
+  // Client-side filtering on top of the live data
+  const filtered = moves.filter(
     (m) =>
       (typeFilter === 'all' || m.type === typeFilter) &&
-      (m.id.toLowerCase().includes(search.toLowerCase()) ||
+      (search === '' ||
+        m.id.toLowerCase().includes(search.toLowerCase()) ||
         m.product.toLowerCase().includes(search.toLowerCase()) ||
-        m.sku.toLowerCase().includes(search.toLowerCase()))
+        m.sku.toLowerCase().includes(search.toLowerCase()) ||
+        m.user.toLowerCase().includes(search.toLowerCase()))
   );
 
   return (
@@ -36,16 +67,68 @@ export default function MoveHistoryPage() {
       {/* Header */}
       <section style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-xl)', padding: 'var(--space-6) var(--space-8)', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, rgba(255,255,255,0.3), transparent)' }} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
-          <div style={{ width: 44, height: 44, borderRadius: 'var(--radius-md)', background: 'var(--color-surface-3)', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-white)' }}>
-            <History size={20} />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
+            <div style={{ width: 44, height: 44, borderRadius: 'var(--radius-md)', background: 'var(--color-surface-3)', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-white)' }}>
+              <History size={20} />
+            </div>
+            <div>
+              <h1 style={{ fontSize: 'var(--text-2xl)', fontWeight: 700, color: 'var(--color-white)', letterSpacing: 'var(--tracking-tight)' }}>Move History</h1>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)', marginTop: 4 }}>Full audit ledger of all stock movements across the warehouse.</p>
+            </div>
           </div>
-          <div>
-            <h1 style={{ fontSize: 'var(--text-2xl)', fontWeight: 700, color: 'var(--color-white)', letterSpacing: 'var(--tracking-tight)' }}>Move History</h1>
-            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)', marginTop: 4 }}>Full audit ledger of all stock movements across the warehouse.</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+            {lastUpdated && (
+              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-tertiary)', fontFamily: 'var(--font-mono)' }}>
+                Updated {lastUpdated.toLocaleTimeString()}
+              </span>
+            )}
+            <button
+              onClick={() => { setLoading(true); fetchMoves(); }}
+              style={{
+                padding: '6px',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--color-surface-2)',
+                border: '1px solid var(--color-border)',
+                color: 'var(--color-text-secondary)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              title="Refresh moves"
+            >
+              <RefreshCw size={14} className={loading ? 'spin-animation' : ''} />
+            </button>
+            <span style={{
+              padding: '4px 12px',
+              borderRadius: 'var(--radius-full)',
+              background: 'var(--color-surface-2)',
+              border: '1px solid var(--color-border)',
+              fontSize: 'var(--text-xs)',
+              color: 'var(--color-text-secondary)',
+              fontWeight: 600,
+              fontFamily: 'var(--font-mono)',
+            }}>
+              {moves.length} total moves
+            </span>
           </div>
         </div>
       </section>
+
+      {/* Error Banner */}
+      {error && (
+        <div style={{
+          padding: 'var(--space-3) var(--space-4)',
+          borderRadius: 'var(--radius-md)',
+          background: 'rgba(239,68,68,0.1)',
+          border: '1px solid rgba(239,68,68,0.3)',
+          color: '#ef4444',
+          fontSize: 'var(--text-sm)',
+        }}>
+          ⚠️ {error}
+        </div>
+      )}
 
       {/* Controls */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
@@ -69,43 +152,72 @@ export default function MoveHistoryPage() {
 
       {/* Move ledger */}
       <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-xl)', overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--color-border)', background: 'var(--color-surface-1)' }}>
-                {['Move ID', 'Type', 'SKU', 'Product', 'Qty', 'From', 'To', 'User', 'Timestamp'].map((h) => (
-                  <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((m, idx) => {
-                const cfg = MOVE_TYPES[m.type];
-                const Icon = cfg.icon;
-                return (
-                  <tr key={m.id} style={{ borderBottom: idx < filtered.length - 1 ? '1px solid var(--color-border)' : 'none' }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-surface-1)'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                  >
-                    <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--color-text-primary)', fontWeight: 600 }}>{m.id}</td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 'var(--radius-full)', background: cfg.bg, color: cfg.color, fontSize: 11, fontWeight: 700 }}>
-                        <Icon size={11} /> {cfg.label}
-                      </span>
-                    </td>
-                    <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>{m.sku}</td>
-                    <td style={{ padding: '12px 16px', fontSize: 'var(--text-sm)', color: 'var(--color-text-primary)' }}>{m.product}</td>
-                    <td style={{ padding: '12px 16px', fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--color-text-primary)' }}>{m.qty}</td>
-                    <td style={{ padding: '12px 16px', fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>{m.from}</td>
-                    <td style={{ padding: '12px 16px', fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>{m.to}</td>
-                    <td style={{ padding: '12px 16px', fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>{m.user}</td>
-                    <td style={{ padding: '12px 16px', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', color: 'var(--color-text-tertiary)' }}>{m.date}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        {loading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-16)', gap: 'var(--space-4)' }}>
+            <Loader2 size={28} style={{ animation: 'spin 1s linear infinite', color: 'var(--color-text-tertiary)' }} />
+            <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-tertiary)' }}>Loading move history from database…</span>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-16)', gap: 'var(--space-4)' }}>
+            <Inbox size={36} style={{ color: 'var(--color-text-tertiary)' }} />
+            <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-tertiary)' }}>
+              {moves.length === 0 ? 'No stock movements recorded yet.' : 'No moves match your search criteria.'}
+            </span>
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--color-border)', background: 'var(--color-surface-1)' }}>
+                  {['Move ID', 'Type', 'SKU', 'Product', 'Qty', 'From', 'To', 'Status', 'User', 'Timestamp'].map((h) => (
+                    <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((m, idx) => {
+                  const cfg = MOVE_TYPES[m.type] || MOVE_TYPES.transfer;
+                  const Icon = cfg.icon;
+                  const statusCfg = STATUS_COLORS[m.status] || STATUS_COLORS.PENDING;
+                  return (
+                    <tr key={`${m.id}-${idx}`} style={{ borderBottom: idx < filtered.length - 1 ? '1px solid var(--color-border)' : 'none' }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-surface-1)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--color-text-primary)', fontWeight: 600 }}>{m.id}</td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 'var(--radius-full)', background: cfg.bg, color: cfg.color, fontSize: 11, fontWeight: 700 }}>
+                          <Icon size={11} /> {cfg.label}
+                        </span>
+                      </td>
+                      <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>{m.sku}</td>
+                      <td style={{ padding: '12px 16px', fontSize: 'var(--text-sm)', color: 'var(--color-text-primary)' }}>{m.product}</td>
+                      <td style={{ padding: '12px 16px', fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--color-text-primary)' }}>{m.qty}</td>
+                      <td style={{ padding: '12px 16px', fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>{m.from}</td>
+                      <td style={{ padding: '12px 16px', fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>{m.to}</td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '3px 10px',
+                          borderRadius: 'var(--radius-full)',
+                          background: statusCfg.bg,
+                          color: statusCfg.color,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          textTransform: 'capitalize',
+                        }}>
+                          {m.status?.replace('_', ' ') || 'Unknown'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '12px 16px', fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>{m.user}</td>
+                      <td style={{ padding: '12px 16px', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', color: 'var(--color-text-tertiary)' }}>{m.date}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

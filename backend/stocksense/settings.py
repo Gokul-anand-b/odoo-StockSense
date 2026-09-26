@@ -3,11 +3,30 @@ Django settings for StockSense project.
 """
 
 import os
+import socket
 from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
+
+from django.db import close_old_connections
+from django.core import signals
+
+# Fast DNS resolution fix for Supabase IPv6 direct hostname on Windows
+_orig_getaddrinfo = socket.getaddrinfo
+def _fast_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+    if host and 'supabase.co' in host:
+        return [(socket.AF_INET6, socket.SOCK_STREAM, 6, '', ('2406:da12:557:f800:30:826b:2ea9:a348', port or 5432, 0, 0))]
+    return _orig_getaddrinfo(host, port, family, type, proto, flags)
+
+socket.getaddrinfo = _fast_getaddrinfo
+
+# Keep database connection pool active across requests for instant response times
+signals.request_started.disconnect(close_old_connections)
+signals.request_finished.disconnect(close_old_connections)
+
+
 
 # ──────────────────────────────────────────────
 # Core Settings
@@ -24,7 +43,7 @@ ALLOWED_HOSTS = ['*']
 # Installed Apps
 # ──────────────────────────────────────────────
 INSTALLED_APPS = [
-    'daphne',
+    # 'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -101,6 +120,10 @@ if DATABASE_URL:
             conn_health_checks=True,
         )
     }
+    DATABASES['default']['OPTIONS'] = {
+        'hostaddr': '2406:da12:557:f800:30:826b:2ea9:a348',
+    }
+
 else:
     DB_ENGINE = os.getenv('DB_ENGINE', 'sqlite').lower()
 

@@ -23,13 +23,23 @@ ZONE_ID_MAP = {
 }
 
 
+from apps.authentication.models import User
+from apps.dashboard.views import invalidate_dashboard_cache
+from apps.stock_ledger.views import invalidate_ledger_cache
+
+
 class TransferListCreateView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
 
     def get(self, request):
-        transfers = InternalTransfer.objects.all().order_by('-created_at')
-        serializer = InternalTransferSerializer(transfers, many=True)
+        transfers = InternalTransfer.objects.prefetch_related('items').all().order_by('-created_at')
+        users = User.objects.all()
+        user_map = {str(u.id): u.full_name or u.email for u in users}
+
+        serializer = InternalTransferSerializer(
+            transfers, many=True, context={'user_map': user_map}
+        )
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
@@ -105,8 +115,12 @@ class TransferListCreateView(APIView):
                     notes=reason,
                 )
 
+        invalidate_dashboard_cache()
+        invalidate_ledger_cache()
+
         serializer = InternalTransferSerializer(transfer)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
 
 
 class TransferDetailView(APIView):
