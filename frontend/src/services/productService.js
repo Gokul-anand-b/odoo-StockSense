@@ -31,7 +31,7 @@ const INITIAL_PRODUCTS = [
     warehouses: [
       { name: 'Warehouse A (Central)', onHand: 25, reserved: 5, incoming: 10, min: 10 },
       { name: 'Warehouse B (East)', onHand: 15, reserved: 2, incoming: 0, min: 5 },
-      { name: 'Warehouse C (Cold)', onHand: 5, reserved: 0, incoming: 0, min: 0 }
+      { name: 'Production Floor', onHand: 5, reserved: 0, incoming: 0, min: 0 }
     ],
     reorderRule: {
       minQuantity: 15,
@@ -168,12 +168,10 @@ const INITIAL_PRODUCTS = [
   }
 ];
 
-// Helper to keep local mock state in memory during session
 let localProducts = [...INITIAL_PRODUCTS];
 let localCategories = [...INITIAL_CATEGORIES];
 
 export const productService = {
-  // Get all products with search & filter
   async getProducts(params = {}) {
     try {
       const response = await api.get('/products/', { params });
@@ -212,7 +210,6 @@ export const productService = {
     }
   },
 
-  // Get single product by ID
   async getProductById(id) {
     try {
       const response = await api.get(`/products/${id}/`);
@@ -245,7 +242,36 @@ export const productService = {
     }
   },
 
-  // Create Product
+  // Internal Stock Transfer between locations (Total company stock remains UNCHANGED)
+  async transferStockBetweenLocations(skuOrId, amount, sourceLoc, destLoc) {
+    const qty = parseInt(amount, 10) || 0;
+    if (qty <= 0) return;
+
+    const prod = localProducts.find(p => p.id === skuOrId || p.sku === skuOrId || p.name === skuOrId);
+    if (prod && prod.warehouses) {
+      // Find or adjust source warehouse location
+      let srcWh = prod.warehouses.find(w => w.name.toLowerCase().includes(sourceLoc.toLowerCase()) || sourceLoc.toLowerCase().includes(w.name.toLowerCase()));
+      if (srcWh) {
+        srcWh.onHand = Math.max(0, srcWh.onHand - qty);
+      }
+
+      // Find or create destination warehouse location
+      let destWh = prod.warehouses.find(w => w.name.toLowerCase().includes(destLoc.toLowerCase()) || destLoc.toLowerCase().includes(w.name.toLowerCase()));
+      if (destWh) {
+        destWh.onHand += qty;
+      } else {
+        prod.warehouses.push({
+          name: destLoc,
+          onHand: qty,
+          reserved: 0,
+          incoming: 0,
+          min: 5
+        });
+      }
+      prod.updatedAt = new Date().toISOString();
+    }
+  },
+
   async createProduct(productData) {
     try {
       const response = await api.post('/products/', productData);
@@ -286,7 +312,6 @@ export const productService = {
     }
   },
 
-  // Update Product
   async updateProduct(id, productData) {
     try {
       const response = await api.patch(`/products/${id}/`, productData);
@@ -310,7 +335,6 @@ export const productService = {
     }
   },
 
-  // Delete Product
   async deleteProduct(id) {
     try {
       await api.delete(`/products/${id}/`);
@@ -321,7 +345,6 @@ export const productService = {
     }
   },
 
-  // Categories
   async getCategories() {
     try {
       const response = await api.get('/categories/');
@@ -372,7 +395,6 @@ export const productService = {
     }
   },
 
-  // Save Reorder Rule
   async saveReorderRule(productId, ruleData) {
     try {
       const response = await api.post(`/products/${productId}/reorder-rules/`, ruleData);

@@ -1,9 +1,54 @@
-// Operation Service for Outgoing Deliveries, Incoming Receipts, Transfers & Adjustments
+// Operation Service for Outgoing Deliveries, Incoming Receipts, Internal Transfers & Adjustments
 import { productService } from './productService';
 
 const DELIVERIES_STORAGE_KEY = 'stocksense_deliveries_v1';
 const RECEIPTS_STORAGE_KEY = 'stocksense_receipts_v1';
+const TRANSFERS_STORAGE_KEY = 'stocksense_transfers_v1';
 const LEDGER_STORAGE_KEY = 'stocksense_ledger_entries_v1';
+
+const INITIAL_TRANSFERS = [
+  {
+    id: 'TRN-2026-001',
+    sourceLocation: 'Main Warehouse - Rack A-12',
+    destinationLocation: 'Production Assembly Floor - Bay 2',
+    status: 'ready',
+    date: '2026-09-26T09:00:00Z',
+    scheduledDate: '2026-09-26T15:00:00Z',
+    totalItems: 2,
+    items: [
+      { id: 'item-trn-1', product: 'Industrial High-Torque Servo Motor 4.5kW', sku: 'MOT-SER-8088', qtyToTransfer: 5, uom: 'Units' },
+      { id: 'item-trn-2', product: 'ESP32-S3 Dual-Core Microcontroller Node', sku: 'ESP32-S3-WROOM', qtyToTransfer: 50, uom: 'Units' }
+    ],
+    notes: 'Internal transfer to replenish robotics production assembly line.'
+  },
+  {
+    id: 'TRN-2026-002',
+    sourceLocation: 'Raw Metal Yard - Bay 3',
+    destinationLocation: 'Machining & Fabrication Zone',
+    status: 'draft',
+    date: '2026-09-26T10:15:00Z',
+    scheduledDate: '2026-09-27T09:00:00Z',
+    totalItems: 1,
+    items: [
+      { id: 'item-trn-3', product: 'Aerospace Grade Aluminum Sheet 2mm (2x1m)', sku: 'ALU-SHT-2024', qtyToTransfer: 20, uom: 'Sheets' }
+    ],
+    notes: 'Material movement for chassis welding stage.'
+  },
+  {
+    id: 'TRN-2026-003',
+    sourceLocation: 'Warehouse A (Central)',
+    destinationLocation: 'Warehouse B (East Logistics)',
+    status: 'done',
+    date: '2026-09-25T14:00:00Z',
+    validatedAt: '2026-09-25T15:30:00Z',
+    scheduledDate: '2026-09-25T14:00:00Z',
+    totalItems: 1,
+    items: [
+      { id: 'item-trn-4', product: 'Rugged Wireless Barcode & QR Scanner', sku: 'SCN-QR-900', qtyToTransfer: 5, uom: 'Pieces' }
+    ],
+    notes: 'Inter-warehouse inventory rebalancing.'
+  }
+];
 
 const INITIAL_RECEIPTS = [
   {
@@ -20,35 +65,6 @@ const INITIAL_RECEIPTS = [
       { id: 'item-rec-2', product: 'Rugged Wireless Barcode & QR Scanner', sku: 'SCN-QR-900', expected: 20, received: 20, uom: 'Pieces', unitPrice: 190.00 }
     ],
     notes: 'Urgent Q3 component replenishment delivery.'
-  },
-  {
-    id: 'REC-2026-002',
-    supplier: 'MetalCraft Steel & Alloys',
-    destinationLocation: 'Raw Metal Yard - Bay 3',
-    status: 'draft',
-    date: '2026-09-26T09:30:00Z',
-    scheduledDate: '2026-09-27T10:00:00Z',
-    poReference: 'PO-99421',
-    totalItems: 1,
-    items: [
-      { id: 'item-rec-3', product: 'Aerospace Grade Aluminum Sheet 2mm (2x1m)', sku: 'ALU-SHT-2024', expected: 50, received: 0, uom: 'Sheets', unitPrice: 110.00 }
-    ],
-    notes: 'Bulk raw metal sheets shipment.'
-  },
-  {
-    id: 'REC-2026-003',
-    supplier: 'Espressif Systems Direct',
-    destinationLocation: 'Cleanroom Storage - Bin 4',
-    status: 'done',
-    date: '2026-09-25T11:00:00Z',
-    scheduledDate: '2026-09-25T11:00:00Z',
-    validatedAt: '2026-09-25T11:45:00Z',
-    poReference: 'PO-99415',
-    totalItems: 1,
-    items: [
-      { id: 'item-rec-4', product: 'ESP32-S3 Dual-Core Microcontroller Node', sku: 'ESP32-S3-WROOM', expected: 200, received: 200, uom: 'Units', unitPrice: 6.50 }
-    ],
-    notes: 'Validated and stored in cleanroom storage.'
   }
 ];
 
@@ -70,6 +86,25 @@ const INITIAL_DELIVERIES = [
     notes: 'Urgent express delivery for automated assembly line.',
   }
 ];
+
+function getStoredTransfers() {
+  if (typeof window === 'undefined') return INITIAL_TRANSFERS;
+  const raw = localStorage.getItem(TRANSFERS_STORAGE_KEY);
+  if (!raw) {
+    localStorage.setItem(TRANSFERS_STORAGE_KEY, JSON.stringify(INITIAL_TRANSFERS));
+    return INITIAL_TRANSFERS;
+  }
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    return INITIAL_TRANSFERS;
+  }
+}
+
+function saveTransfers(transfers) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(TRANSFERS_STORAGE_KEY, JSON.stringify(transfers));
+}
 
 function getStoredDeliveries() {
   if (typeof window === 'undefined') return INITIAL_DELIVERIES;
@@ -121,6 +156,121 @@ function appendLedgerEntry(entry) {
 }
 
 export const operationService = {
+  // --- INTERNAL TRANSFERS ---
+  async getTransfers({ status = 'all', search = '' } = {}) {
+    const list = getStoredTransfers();
+    return list.filter((t) => {
+      const matchStatus = status === 'all' || t.status.toLowerCase() === status.toLowerCase();
+      const matchSearch =
+        !search ||
+        t.id.toLowerCase().includes(search.toLowerCase()) ||
+        t.sourceLocation.toLowerCase().includes(search.toLowerCase()) ||
+        t.destinationLocation.toLowerCase().includes(search.toLowerCase()) ||
+        t.items.some((i) => i.product.toLowerCase().includes(search.toLowerCase()) || i.sku.toLowerCase().includes(search.toLowerCase()));
+      return matchStatus && matchSearch;
+    });
+  },
+
+  async getTransferById(id) {
+    const list = getStoredTransfers();
+    const found = list.find((t) => t.id === id);
+    if (!found) throw new Error(`Internal transfer ${id} not found`);
+    return found;
+  },
+
+  async createTransfer(data) {
+    const list = getStoredTransfers();
+    const newId = `TRN-2026-${String(list.length + 1).padStart(3, '0')}`;
+    const newTransfer = {
+      id: newId,
+      sourceLocation: data.sourceLocation || 'Main Warehouse - Rack A-12',
+      destinationLocation: data.destinationLocation || 'Production Assembly Floor',
+      status: 'draft',
+      date: new Date().toISOString(),
+      scheduledDate: data.scheduledDate || new Date(Date.now() + 86400000).toISOString(),
+      totalItems: data.items ? data.items.length : 0,
+      items: (data.items || []).map((it, idx) => ({
+        id: `item-trn-${Date.now()}-${idx}`,
+        product: it.product,
+        sku: it.sku || `SKU-${Math.floor(1000 + Math.random() * 9000)}`,
+        qtyToTransfer: parseInt(it.qtyToTransfer || 1, 10),
+        uom: it.uom || 'Units'
+      })),
+      notes: data.notes || '',
+    };
+
+    const updated = [newTransfer, ...list];
+    saveTransfers(updated);
+    return newTransfer;
+  },
+
+  async updateTransfer(id, data) {
+    const list = getStoredTransfers();
+    const index = list.findIndex((t) => t.id === id);
+    if (index === -1) throw new Error('Transfer not found');
+
+    list[index] = {
+      ...list[index],
+      ...data,
+      totalItems: data.items ? data.items.length : list[index].totalItems
+    };
+    saveTransfers(list);
+    return list[index];
+  },
+
+  // VALIDATE / CONFIRM INTERNAL TRANSFER -> Moves Location Quants (Total Stock Unchanged) & Logs Ledger
+  async validateTransfer(transferId) {
+    const list = getStoredTransfers();
+    const transfer = list.find((t) => t.id === transferId);
+    if (!transfer) throw new Error('Transfer not found');
+
+    if (transfer.status === 'done') {
+      throw new Error('Transfer is already validated');
+    }
+
+    const validatedTimestamp = new Date().toISOString();
+    transfer.status = 'done';
+    transfer.validatedAt = validatedTimestamp;
+
+    // Execute location-to-location stock transfer (Total company stock remains unchanged)
+    for (const item of transfer.items) {
+      const qty = parseInt(item.qtyToTransfer, 10);
+      await productService.transferStockBetweenLocations(
+        item.sku || item.product,
+        qty,
+        transfer.sourceLocation,
+        transfer.destinationLocation
+      );
+    }
+
+    saveTransfers(list);
+
+    // Append entry to Stock Move Ledger
+    const ledgerEntry = {
+      id: `LEDGER-${Date.now()}`,
+      reference: transfer.id,
+      operationType: 'Internal Transfer',
+      partner: 'Internal Stock Movement',
+      sourceLocation: transfer.sourceLocation,
+      destinationLocation: transfer.destinationLocation,
+      timestamp: validatedTimestamp,
+      items: transfer.items.map((i) => ({
+        product: i.product,
+        sku: i.sku,
+        qty: parseInt(i.qtyToTransfer, 10),
+        type: 'INTERNAL_TRANSFER',
+        uom: i.uom,
+        from: transfer.sourceLocation,
+        to: transfer.destinationLocation
+      })),
+      notes: `Transferred from ${transfer.sourceLocation} to ${transfer.destinationLocation}`
+    };
+
+    appendLedgerEntry(ledgerEntry);
+
+    return { transfer, ledgerEntry };
+  },
+
   // --- INCOMING RECEIPTS ---
   async getReceipts({ status = 'all', search = '' } = {}) {
     const list = getStoredReceipts();
@@ -186,7 +336,6 @@ export const operationService = {
     return list[index];
   },
 
-  // VALIDATE RECEIPT -> Increases Stock on Hand & Writes Ledger Entry
   async validateReceipt(receiptId) {
     const list = getStoredReceipts();
     const receipt = list.find((r) => r.id === receiptId);
@@ -200,7 +349,6 @@ export const operationService = {
     receipt.status = 'done';
     receipt.validatedAt = validatedTimestamp;
 
-    // Automatically increase stock on hand for each item in receipt
     for (const item of receipt.items) {
       const qtyReceived = parseInt(item.received ?? item.expected, 10);
       await productService.increaseStockOnHand(item.sku || item.product, qtyReceived);
@@ -208,7 +356,6 @@ export const operationService = {
 
     saveReceipts(list);
 
-    // Create & append Stock Ledger entry
     const ledgerEntry = {
       id: `LEDGER-${Date.now()}`,
       reference: receipt.id,
