@@ -1,0 +1,39 @@
+# Django Core & REST Framework
+Django>=5.0,<5.2
+djangorestframework>=3.15.0
+django-cors-headers>=4.3.1
+django-filter>=24.2
+
+# Database (PostgreSQL)
+psycopg2-binary>=2.9.9
+dj-database-url>=2.1.0
+
+# Authentication & Security
+djangorestframework-simplejwt>=5.3.1
+pyotp>=2.9.0
+qrcode>=7.4.2
+Pillow>=10.3.0
+
+# Real-Time & WebSockets
+channels>=4.0.0
+channels-redis>=4.2.0
+daphne>=4.1.0
+
+# Asynchronous Tasks & Caching
+celery>=5.3.6
+redis>=5.0.3
+
+# AI & Data Science
+numpy>=1.26.4
+pandas>=2.2.1
+scikit-learn>=1.4.1.post1
+scipy>=1.12.0
+
+# Barcode & Utilities
+python-barcode>=0.15.1
+python-dotenv>=1.0.1
+requests>=2.31.0
+
+# Production & Server
+gunicorn>=21.2.0
+whitenoise>=6.6.0
