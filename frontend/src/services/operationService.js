@@ -1,7 +1,56 @@
-// Operation Service for Outgoing Deliveries, Receipts, Transfers & Adjustments
-// Connects to Django Backend or uses reactive local cache during development
+// Operation Service for Outgoing Deliveries, Incoming Receipts, Transfers & Adjustments
+import { productService } from './productService';
 
-const STORAGE_KEY = 'stocksense_deliveries_v1';
+const DELIVERIES_STORAGE_KEY = 'stocksense_deliveries_v1';
+const RECEIPTS_STORAGE_KEY = 'stocksense_receipts_v1';
+const LEDGER_STORAGE_KEY = 'stocksense_ledger_entries_v1';
+
+const INITIAL_RECEIPTS = [
+  {
+    id: 'REC-2026-001',
+    supplier: 'Apex Industrial Supply Corp',
+    destinationLocation: 'Main Warehouse - Rack A-12',
+    status: 'ready',
+    date: '2026-09-26T08:00:00Z',
+    scheduledDate: '2026-09-26T14:00:00Z',
+    poReference: 'PO-99420',
+    totalItems: 2,
+    items: [
+      { id: 'item-rec-1', product: 'Industrial High-Torque Servo Motor 4.5kW', sku: 'MOT-SER-8088', expected: 10, received: 10, uom: 'Units', unitPrice: 840.00 },
+      { id: 'item-rec-2', product: 'Rugged Wireless Barcode & QR Scanner', sku: 'SCN-QR-900', expected: 20, received: 20, uom: 'Pieces', unitPrice: 190.00 }
+    ],
+    notes: 'Urgent Q3 component replenishment delivery.'
+  },
+  {
+    id: 'REC-2026-002',
+    supplier: 'MetalCraft Steel & Alloys',
+    destinationLocation: 'Raw Metal Yard - Bay 3',
+    status: 'draft',
+    date: '2026-09-26T09:30:00Z',
+    scheduledDate: '2026-09-27T10:00:00Z',
+    poReference: 'PO-99421',
+    totalItems: 1,
+    items: [
+      { id: 'item-rec-3', product: 'Aerospace Grade Aluminum Sheet 2mm (2x1m)', sku: 'ALU-SHT-2024', expected: 50, received: 0, uom: 'Sheets', unitPrice: 110.00 }
+    ],
+    notes: 'Bulk raw metal sheets shipment.'
+  },
+  {
+    id: 'REC-2026-003',
+    supplier: 'Espressif Systems Direct',
+    destinationLocation: 'Cleanroom Storage - Bin 4',
+    status: 'done',
+    date: '2026-09-25T11:00:00Z',
+    scheduledDate: '2026-09-25T11:00:00Z',
+    validatedAt: '2026-09-25T11:45:00Z',
+    poReference: 'PO-99415',
+    totalItems: 1,
+    items: [
+      { id: 'item-rec-4', product: 'ESP32-S3 Dual-Core Microcontroller Node', sku: 'ESP32-S3-WROOM', expected: 200, received: 200, uom: 'Units', unitPrice: 6.50 }
+    ],
+    notes: 'Validated and stored in cleanroom storage.'
+  }
+];
 
 const INITIAL_DELIVERIES = [
   {
@@ -19,59 +68,14 @@ const INITIAL_DELIVERIES = [
       { id: 'item-3', product: 'Heavy Duty Aluminum Extrusions', sku: 'ALU-EXT-40', demanded: 15, picked: 15, packed: 15, available: 85, uom: 'kg' },
     ],
     notes: 'Urgent express delivery for automated assembly line.',
-  },
-  {
-    id: 'DEL-2025-002',
-    customer: 'Apex Global Robotics',
-    sourceLocation: 'Central Depot - Bay 4',
-    status: 'waiting',
-    date: '2026-09-26T09:15:00Z',
-    scheduledDate: '2026-09-27T10:00:00Z',
-    trackingNumber: 'TRK-984211',
-    totalItems: 2,
-    items: [
-      { id: 'item-4', product: 'Hydraulic Actuator Pump', sku: 'ACT-HYD-500', demanded: 6, picked: 2, packed: 0, available: 2, uom: 'units' },
-      { id: 'item-5', product: 'Braided Stainless Steel Hose', sku: 'HSE-SS-12', demanded: 12, picked: 12, packed: 6, available: 40, uom: 'meters' },
-    ],
-    notes: 'Awaiting remaining 4 actuators from incoming vendor receipt.',
-  },
-  {
-    id: 'DEL-2025-003',
-    customer: 'Tesla Supercharger Dept',
-    sourceLocation: 'Main Warehouse - Bay 2',
-    status: 'draft',
-    date: '2026-09-26T09:40:00Z',
-    scheduledDate: '2026-09-28T14:00:00Z',
-    trackingNumber: 'PENDING',
-    totalItems: 1,
-    items: [
-      { id: 'item-6', product: 'High Voltage Copper Busbars', sku: 'BUS-CU-400A', demanded: 30, picked: 0, packed: 0, available: 95, uom: 'pcs' },
-    ],
-    notes: 'Standard freight pallet shipment.',
-  },
-  {
-    id: 'DEL-2025-004',
-    customer: 'Wayne Enterprises Tech Lab',
-    sourceLocation: 'Main Warehouse - Secure Vault B',
-    status: 'done',
-    date: '2026-09-25T14:20:00Z',
-    scheduledDate: '2026-09-25T18:00:00Z',
-    validatedAt: '2026-09-25T17:45:10Z',
-    trackingNumber: 'TRK-984198',
-    totalItems: 2,
-    items: [
-      { id: 'item-7', product: 'Carbon Fiber Reinforced Panels', sku: 'CF-PNL-2X4', demanded: 8, picked: 8, packed: 8, available: 32, uom: 'sheets' },
-      { id: 'item-8', product: 'Titanium Fastener Kit M8', sku: 'TI-FST-M8', demanded: 50, picked: 50, packed: 50, available: 200, uom: 'kits' },
-    ],
-    notes: 'Validated and dispatched via DHL Express.',
-  },
+  }
 ];
 
 function getStoredDeliveries() {
   if (typeof window === 'undefined') return INITIAL_DELIVERIES;
-  const raw = localStorage.getItem(STORAGE_KEY);
+  const raw = localStorage.getItem(DELIVERIES_STORAGE_KEY);
   if (!raw) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_DELIVERIES));
+    localStorage.setItem(DELIVERIES_STORAGE_KEY, JSON.stringify(INITIAL_DELIVERIES));
     return INITIAL_DELIVERIES;
   }
   try {
@@ -83,11 +87,151 @@ function getStoredDeliveries() {
 
 function saveDeliveries(deliveries) {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(deliveries));
+  localStorage.setItem(DELIVERIES_STORAGE_KEY, JSON.stringify(deliveries));
+}
+
+function getStoredReceipts() {
+  if (typeof window === 'undefined') return INITIAL_RECEIPTS;
+  const raw = localStorage.getItem(RECEIPTS_STORAGE_KEY);
+  if (!raw) {
+    localStorage.setItem(RECEIPTS_STORAGE_KEY, JSON.stringify(INITIAL_RECEIPTS));
+    return INITIAL_RECEIPTS;
+  }
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    return INITIAL_RECEIPTS;
+  }
+}
+
+function saveReceipts(receipts) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(RECEIPTS_STORAGE_KEY, JSON.stringify(receipts));
+}
+
+function appendLedgerEntry(entry) {
+  if (typeof window === 'undefined') return;
+  let ledger = [];
+  try {
+    const raw = localStorage.getItem(LEDGER_STORAGE_KEY);
+    if (raw) ledger = JSON.parse(raw);
+  } catch (e) {}
+  ledger.unshift(entry);
+  localStorage.setItem(LEDGER_STORAGE_KEY, JSON.stringify(ledger));
 }
 
 export const operationService = {
-  // Fetch deliveries with optional search and status filter
+  // --- INCOMING RECEIPTS ---
+  async getReceipts({ status = 'all', search = '' } = {}) {
+    const list = getStoredReceipts();
+    return list.filter((r) => {
+      const matchStatus = status === 'all' || r.status.toLowerCase() === status.toLowerCase();
+      const matchSearch =
+        !search ||
+        r.id.toLowerCase().includes(search.toLowerCase()) ||
+        r.supplier.toLowerCase().includes(search.toLowerCase()) ||
+        (r.poReference && r.poReference.toLowerCase().includes(search.toLowerCase())) ||
+        r.items.some((i) => i.product.toLowerCase().includes(search.toLowerCase()) || i.sku.toLowerCase().includes(search.toLowerCase()));
+      return matchStatus && matchSearch;
+    });
+  },
+
+  async getReceiptById(id) {
+    const list = getStoredReceipts();
+    const found = list.find((r) => r.id === id);
+    if (!found) throw new Error(`Incoming receipt ${id} not found`);
+    return found;
+  },
+
+  async createReceipt(data) {
+    const list = getStoredReceipts();
+    const newId = `REC-2026-${String(list.length + 1).padStart(3, '0')}`;
+    const newReceipt = {
+      id: newId,
+      supplier: data.supplier,
+      destinationLocation: data.destinationLocation || 'Main Warehouse - Rack A-12',
+      status: 'draft',
+      date: new Date().toISOString(),
+      scheduledDate: data.scheduledDate || new Date(Date.now() + 86400000).toISOString(),
+      poReference: data.poReference || `PO-${Math.floor(90000 + Math.random() * 10000)}`,
+      totalItems: data.items ? data.items.length : 0,
+      items: (data.items || []).map((it, idx) => ({
+        id: `item-rec-${Date.now()}-${idx}`,
+        product: it.product,
+        sku: it.sku || `SKU-${Math.floor(1000 + Math.random() * 9000)}`,
+        expected: parseInt(it.expected || 1, 10),
+        received: parseInt(it.received ?? it.expected ?? 1, 10),
+        uom: it.uom || 'Units',
+        unitPrice: parseFloat(it.unitPrice || 0)
+      })),
+      notes: data.notes || '',
+    };
+
+    const updated = [newReceipt, ...list];
+    saveReceipts(updated);
+    return newReceipt;
+  },
+
+  async updateReceipt(id, data) {
+    const list = getStoredReceipts();
+    const index = list.findIndex((r) => r.id === id);
+    if (index === -1) throw new Error('Receipt not found');
+
+    list[index] = {
+      ...list[index],
+      ...data,
+      totalItems: data.items ? data.items.length : list[index].totalItems
+    };
+    saveReceipts(list);
+    return list[index];
+  },
+
+  // VALIDATE RECEIPT -> Increases Stock on Hand & Writes Ledger Entry
+  async validateReceipt(receiptId) {
+    const list = getStoredReceipts();
+    const receipt = list.find((r) => r.id === receiptId);
+    if (!receipt) throw new Error('Receipt not found');
+
+    if (receipt.status === 'done') {
+      throw new Error('Receipt is already validated');
+    }
+
+    const validatedTimestamp = new Date().toISOString();
+    receipt.status = 'done';
+    receipt.validatedAt = validatedTimestamp;
+
+    // Automatically increase stock on hand for each item in receipt
+    for (const item of receipt.items) {
+      const qtyReceived = parseInt(item.received ?? item.expected, 10);
+      await productService.increaseStockOnHand(item.sku || item.product, qtyReceived);
+    }
+
+    saveReceipts(list);
+
+    // Create & append Stock Ledger entry
+    const ledgerEntry = {
+      id: `LEDGER-${Date.now()}`,
+      reference: receipt.id,
+      operationType: 'Incoming Receipt',
+      partner: receipt.supplier,
+      location: receipt.destinationLocation,
+      timestamp: validatedTimestamp,
+      items: receipt.items.map((i) => ({
+        product: i.product,
+        sku: i.sku,
+        qty: parseInt(i.received ?? i.expected, 10),
+        type: 'INBOUND',
+        uom: i.uom
+      })),
+      notes: `Validated receipt from ${receipt.supplier}`
+    };
+
+    appendLedgerEntry(ledgerEntry);
+
+    return { receipt, ledgerEntry };
+  },
+
+  // --- OUTGOING DELIVERIES ---
   async getDeliveries({ status = 'all', search = '' } = {}) {
     const list = getStoredDeliveries();
     return list.filter((order) => {
@@ -101,7 +245,6 @@ export const operationService = {
     });
   },
 
-  // Get delivery by ID
   async getDeliveryById(id) {
     const list = getStoredDeliveries();
     const found = list.find((o) => o.id === id);
@@ -109,7 +252,6 @@ export const operationService = {
     return found;
   },
 
-  // Create new delivery order
   async createDelivery(data) {
     const list = getStoredDeliveries();
     const newId = `DEL-2025-${String(list.length + 1).padStart(3, '0')}`;
@@ -140,7 +282,6 @@ export const operationService = {
     return newOrder;
   },
 
-  // Update item picking quantity
   async updatePicking(orderId, itemId, pickedQuantity) {
     const list = getStoredDeliveries();
     const order = list.find((o) => o.id === orderId);
@@ -151,7 +292,6 @@ export const operationService = {
 
     item.picked = Math.min(Math.max(0, pickedQuantity), item.demanded);
 
-    // Auto-update status
     const allPicked = order.items.every((i) => i.picked >= i.demanded);
     if (allPicked && order.status === 'draft') {
       order.status = 'ready';
@@ -161,34 +301,17 @@ export const operationService = {
     return order;
   },
 
-  // Update item packing quantity
-  async updatePacking(orderId, itemId, packedQuantity) {
-    const list = getStoredDeliveries();
-    const order = list.find((o) => o.id === orderId);
-    if (!order) throw new Error('Order not found');
-
-    const item = order.items.find((i) => i.id === itemId);
-    if (!item) throw new Error('Item not found');
-
-    item.packed = Math.min(Math.max(0, packedQuantity), item.picked);
-    saveDeliveries(list);
-    return order;
-  },
-
-  // Validate Delivery -> Atomically Decrements Stock & Writes to Ledger
   async validateDelivery(orderId) {
     const list = getStoredDeliveries();
     const order = list.find((o) => o.id === orderId);
     if (!order) throw new Error('Order not found');
 
-    // Check stock availability
     for (const item of order.items) {
       if (item.available < item.demanded) {
         throw new Error(`Insufficient stock for ${item.product}: demanded ${item.demanded}, available ${item.available}`);
       }
     }
 
-    // Mark as done and deduct stock
     order.status = 'done';
     order.validatedAt = new Date().toISOString();
     order.items.forEach((item) => {
@@ -199,7 +322,6 @@ export const operationService = {
 
     saveDeliveries(list);
 
-    // Log to simulated ledger
     const ledgerEntry = {
       reference: order.id,
       customer: order.customer,
@@ -213,5 +335,5 @@ export const operationService = {
     };
 
     return { order, ledgerEntry };
-  },
+  }
 };

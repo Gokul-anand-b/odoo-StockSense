@@ -179,8 +179,6 @@ export const productService = {
       const response = await api.get('/products/', { params });
       return response.data;
     } catch (err) {
-      console.warn('API error, serving local B&W dataset fallback:', err.message);
-      
       let filtered = [...localProducts];
       const { search, category, stockStatus, sortBy } = params;
 
@@ -189,7 +187,7 @@ export const productService = {
         filtered = filtered.filter(
           p => p.name.toLowerCase().includes(query) ||
                p.sku.toLowerCase().includes(query) ||
-               p.barcode.includes(query)
+               (p.barcode && p.barcode.includes(query))
         );
       }
 
@@ -220,10 +218,30 @@ export const productService = {
       const response = await api.get(`/products/${id}/`);
       return response.data;
     } catch (err) {
-      console.warn(`API error for product ${id}, falling back:`, err.message);
       const prod = localProducts.find(p => p.id === id || p.sku === id);
       if (!prod) throw new Error('Product not found');
       return prod;
+    }
+  },
+
+  // Increase stock on hand (called during Receipt Validation)
+  async increaseStockOnHand(skuOrId, amount) {
+    const qty = parseInt(amount, 10) || 0;
+    if (qty <= 0) return;
+
+    const prod = localProducts.find(p => p.id === skuOrId || p.sku === skuOrId || p.name === skuOrId);
+    if (prod) {
+      prod.stockOnHand += qty;
+      if (prod.stockOnHand > prod.minStockLevel) {
+        prod.status = 'In Stock';
+      } else if (prod.stockOnHand > 0) {
+        prod.status = 'Low Stock';
+      }
+
+      if (prod.warehouses && prod.warehouses.length > 0) {
+        prod.warehouses[0].onHand += qty;
+      }
+      prod.updatedAt = new Date().toISOString();
     }
   },
 
@@ -233,7 +251,6 @@ export const productService = {
       const response = await api.post('/products/', productData);
       return response.data;
     } catch (err) {
-      console.warn('API create product failed, adding to local mock store:', err.message);
       const newProd = {
         id: `prod-${Date.now()}`,
         sku: productData.sku || `SKU-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -275,7 +292,6 @@ export const productService = {
       const response = await api.patch(`/products/${id}/`, productData);
       return response.data;
     } catch (err) {
-      console.warn(`API update failed for ${id}, modifying local:`, err.message);
       const index = localProducts.findIndex(p => p.id === id);
       if (index === -1) throw new Error('Product not found');
       
@@ -285,7 +301,6 @@ export const productService = {
         updatedAt: new Date().toISOString()
       };
       
-      // Update status dynamically
       if (updated.stockOnHand <= 0) updated.status = 'Out of Stock';
       else if (updated.stockOnHand <= updated.minStockLevel) updated.status = 'Low Stock';
       else updated.status = 'In Stock';
@@ -301,7 +316,6 @@ export const productService = {
       await api.delete(`/products/${id}/`);
       return { success: true };
     } catch (err) {
-      console.warn(`API delete failed for ${id}, deleting locally:`, err.message);
       localProducts = localProducts.filter(p => p.id !== id);
       return { success: true };
     }
