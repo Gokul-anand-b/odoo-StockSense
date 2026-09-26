@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Save } from 'lucide-react';
@@ -30,10 +30,13 @@ const labelStyle = {
 export default function CreateProductPage() {
   const router = useRouter();
 
+  const [categories, setCategories] = useState([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
+
   const [formData, setFormData] = useState({
     name: '',
     sku: '',
-    category: 'Audio',
+    category: '',
     unitPrice: '',
     initialStock: '',
     reorderPoint: '',
@@ -43,6 +46,29 @@ export default function CreateProductPage() {
 
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Load Categories Dynamically from Supabase
+  useEffect(() => {
+    async function loadCategories() {
+      try {
+        const catList = await productService.getCategories();
+        setCategories(catList);
+        if (catList.length > 0) {
+          setFormData((prev) => ({
+            ...prev,
+            category: prev.category || catList[0].name,
+          }));
+        } else {
+          setFormData((prev) => ({ ...prev, category: 'General' }));
+        }
+      } catch (err) {
+        console.error('Failed to load categories:', err);
+      } finally {
+        setIsLoadingCategories(false);
+      }
+    }
+    loadCategories();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -169,7 +195,7 @@ export default function CreateProductPage() {
           </div>
         </div>
 
-        {/* Row 2: Category and Unit Price */}
+        {/* Row 2: Category (Dynamic from Supabase) and Unit Price */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
           <div>
             <label style={labelStyle}>Category</label>
@@ -178,15 +204,19 @@ export default function CreateProductPage() {
               value={formData.category}
               onChange={handleChange}
               style={{ ...inputStyle, cursor: 'pointer' }}
+              disabled={isLoadingCategories}
             >
-              <option value="Audio">Audio</option>
-              <option value="Electronics & Sensors">Electronics & Sensors</option>
-              <option value="Raw Materials & Alloys">Raw Materials & Alloys</option>
-              <option value="Robotics & Motion">Robotics & Motion</option>
-              <option value="Warehouse Tools & Gear">Warehouse Tools & Gear</option>
-              <option value="Heavy Machinery & Motors">Heavy Machinery & Motors</option>
-              <option value="Packaging & Logistics">Packaging & Logistics</option>
-              <option value="General">General</option>
+              {isLoadingCategories ? (
+                <option>Loading live categories...</option>
+              ) : categories.length === 0 ? (
+                <option value="General">General</option>
+              ) : (
+                categories.map((c) => (
+                  <option key={c.id} value={c.name}>
+                    {c.name} {c.code ? `(${c.code})` : ''}
+                  </option>
+                ))
+              )}
             </select>
           </div>
           <div>

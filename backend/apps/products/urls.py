@@ -1,5 +1,5 @@
 """
-URL routing for products module.
+URL routing for products and categories module.
 """
 
 from django.urls import path, include

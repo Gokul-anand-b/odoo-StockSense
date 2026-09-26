@@ -1,5 +1,5 @@
 """
-Product views and ViewSets with Upsert support.
+Product and Category views and ViewSets with Upsert support.
 """
 
 from rest_framework import viewsets, permissions, status

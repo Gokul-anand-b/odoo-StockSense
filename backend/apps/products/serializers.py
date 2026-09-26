@@ -1,5 +1,5 @@
 """
-Serializers for Product model matching Supabase schema.
+Serializers for Product and Category models matching Supabase schema.
 """
 
 from rest_framework import serializers
@@ -8,9 +8,31 @@ import uuid
 
 
 class CategorySerializer(serializers.ModelSerializer):
+    skus_count = serializers.SerializerMethodField()
+    total_value = serializers.SerializerMethodField()
+
     class Meta:
         model = Category
-        fields = ['id', 'name', 'code', 'description']
+        fields = ['id', 'name', 'code', 'description', 'skus_count', 'total_value', 'created_at', 'updated_at']
+        extra_kwargs = {
+            'id': {'required': False},
+        }
+
+    def get_skus_count(self, obj):
+        return obj.products.count()
+
+    def get_total_value(self, obj):
+        total = sum((p.price or 0) * (p.stock_on_hand or 0) for p in obj.products.all())
+        return float(total)
+
+    def create(self, validated_data):
+        if not validated_data.get('id'):
+            name = validated_data.get('name', 'Category')
+            validated_data['id'] = f"cat-{name.lower().replace(' ', '-')[:15]}-{uuid.uuid4().hex[:4]}"
+        if not validated_data.get('code'):
+            name = validated_data.get('name', 'CAT')
+            validated_data['code'] = name[:4].upper()
+        return super().create(validated_data)
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -60,7 +82,6 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        # Expose category string for seamless frontend compatibility
         data['category'] = instance.category.name if instance.category else (instance.category_id or 'General')
         return data
 
@@ -89,7 +110,6 @@ class ProductSerializer(serializers.ModelSerializer):
         if 'reorderPoint' in self.initial_data and 'min_stock_level' not in validated_data:
             validated_data['min_stock_level'] = int(self.initial_data['reorderPoint'])
 
-        # Handle Category mapping
         cat_input = validated_data.pop('category', None) or self.initial_data.get('category') or self.initial_data.get('category_id')
         if cat_input:
             validated_data['category'] = self._resolve_category(cat_input)

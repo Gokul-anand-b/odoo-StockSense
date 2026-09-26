@@ -1,5 +1,6 @@
 'use client';
 
+import { use } from 'react';
 import Link from 'next/link';
 import { Boxes, ArrowLeft, TrendingDown, TrendingUp } from 'lucide-react';
 
@@ -9,7 +10,7 @@ const PRODUCT_DATA = {
 };
 
 export default function ProductDetailPage({ params }) {
-  const { id } = params;
+  const { id } = use(params);
   const product = PRODUCT_DATA[id] || { name: `Product ${id}`, category: '—', stock: 0, reorderPt: 0, safetyStock: 0, price: 0, status: 'healthy', description: 'No description available.' };
   const statusColor = product.status === 'critical' ? 'var(--color-error)' : product.status === 'warning' ? 'var(--color-warning)' : 'var(--color-success)';
 
